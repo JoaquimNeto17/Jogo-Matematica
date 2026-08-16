@@ -145,10 +145,10 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   min-width: min(360px, 82vw);
   margin-top: 36px;
   padding: 20px 36px;
-  border: 4px solid #8bff98;
+  border: 3px solid #8bff98;
   border-radius: 14px;
   background: linear-gradient(#48ed61, #15952d);
-  box-shadow: inset 0 -8px rgba(0, 75, 20, .35), 0 0 0 5px #043b31, 0 0 28px rgba(44, 241, 90, .55);
+  box-shadow: inset 0 -6px rgba(0, 75, 20, .3), 0 0 24px rgba(44, 241, 90, .5);
   font-size: clamp(27px, 4vw, 46px);
   font-weight: 800;
   letter-spacing: .025em;

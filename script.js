@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.16-05";
+const FRONTEND_BUILD = "2026.08.16-06";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -38,6 +38,7 @@ const state = {
   hints: {},
   hintCooldownUntil: 0,
   newHintKey: null,
+  answerPending: false,
   storyPage: 0,
   modal: null,
   certificate: null,
@@ -264,15 +265,30 @@ async function useHint() {
 }
 
 async function answerQuestion() {
+  if (state.answerPending) return;
+  state.answerPending = true;
   const question = state.stage.exercises[state.questionIndex];
+  const selectedOption = state.selectedOption;
   loading();
   try {
-    const data = await api("/answer", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id, selected_option: state.selectedOption }) });
+    const data = await api("/answer", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id, selected_option: selectedOption }) });
     state.progress = data.progress;
-    if (state.progress.game_over) { state.view = "gameOver"; render(); return; }
-    if (!data.correct) {
+    if (state.progress?.game_over) {
+      state.view = "gameOver";
+    } else if (typeof data.correct !== "boolean" && state.progress?.answered_questions?.includes(question.id)) {
+      const stageCompleted = state.progress.completed_stages?.includes(state.stageId);
+      state.modal = {
+        type: "success",
+        reaction: "happy",
+        title: "Resposta já registrada",
+        message: "Esta pergunta já havia sido respondida corretamente. Seu progresso foi sincronizado.",
+        action: state.progress.awaiting_final_code ? "CÓDIGO FINAL" : stageCompleted ? "VOLTAR AO MAPA" : "PRÓXIMA PERGUNTA",
+        next: state.progress.awaiting_final_code ? "go-final" : stageCompleted ? "next-stage" : "next-question",
+      };
+    } else if (data.correct === false) {
       const feedback = data.feedback || data.message || "Essa alternativa não está correta. Tente novamente.";
-      state.modal = { type: "error", reaction: "sad", title: "Resposta incorreta", message: `${feedback} Restam ${data.remaining_errors} tentativas.`, action: "TENTAR NOVAMENTE" };
+      const attemptsText = Number.isFinite(data.remaining_errors) ? ` Restam ${data.remaining_errors} tentativas.` : "";
+      state.modal = { type: "error", reaction: "sad", title: "Resposta incorreta", message: `${feedback}${attemptsText}`, action: "TENTAR NOVAMENTE" };
     } else if (data.stage_completed) {
       const feedback = data.feedback || data.message || "Resposta correta!";
       state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: `Código: ${data.code_received}`, action: data.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: data.awaiting_final_code ? "go-final" : "next-stage" };
@@ -281,6 +297,7 @@ async function answerQuestion() {
       state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: `${feedback} Você ganhou ${data.earned_points} pontos.`, action: "PRÓXIMA PERGUNTA", next: "next-question" };
     }
   } catch (error) { notify(error.message); }
+  state.answerPending = false;
   state.selectedOption = null;
   render();
 }
