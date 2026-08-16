@@ -33,7 +33,8 @@ const state = {
   questionIndex: 0,
   selectedOption: null,
   progress: null,
-  hint: "",
+  hints: {},
+  hintCooldownUntil: 0,
   storyPage: 0,
   modal: null,
   certificate: null,
@@ -116,13 +117,15 @@ function renderStory() {
 
 function renderMap() {
   const progress = state.progress || { current_stage: 1, completed_stages: [] };
+  const unlockedCodes = progress.unlocked_codes || [];
   const chips = Array.from({ length: 5 }, (_, index) => {
     const id = index + 1;
     const done = progress.completed_stages?.includes(id);
     const active = id === progress.current_stage;
     return `<div class="stage-chip ${done ? "done" : active ? "active" : ""}"><strong>FASE ${id}</strong><br><small>${done ? "CONCLUÍDA" : active ? "LIBERADA" : "BLOQUEADA"}</small></div>`;
   }).join("");
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><div class="game-actions"><button class="primary-button" data-action="load-stage">ENTRAR NA FASE ${progress.current_stage}</button></div></div></section>`;
+  const codeSlots = Array.from({ length: 5 }, (_, index) => `<span class="code-slot ${unlockedCodes[index] ? "unlocked" : "locked"}"><small>PARTE ${index + 1}</small><strong>${unlockedCodes[index] ? escapeHtml(unlockedCodes[index]) : "••••"}</strong></span>`).join("");
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${progress.current_stage}</button></div></div></section>`;
 }
 
 function renderStage() {
@@ -141,9 +144,12 @@ function renderQuestion() {
   const question = state.stage?.exercises?.[state.questionIndex];
   if (!question) return renderStage();
   const progress = state.progress || { score: 0, wrong_answers: 0 };
+  const questionHints = state.hints[question.id] || [];
+  const hintCoolingDown = Date.now() < state.hintCooldownUntil;
   const answers = question.options.map(option => `<button class="answer ${state.selectedOption === option.id ? "selected" : ""}" data-option="${option.id}">${escapeHtml(option.id)}) ${escapeHtml(option.text).replace("raiz de 3", "√3")}</button>`).join("");
   const character = state.characters.find(item => item.id === state.selectedCharacter);
-  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="help-button" data-action="hint" aria-label="Pedir uma dica" title="Pedir dica">?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${state.hint ? `<div class="hint-box"><strong>DICA:</strong> ${escapeHtml(state.hint)}</div>` : ""}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
+  const hintsHtml = questionHints.length ? `<div class="hints-list">${questionHints.map((hint, index) => `<div class="hint-box"><strong>DICA ${index + 1}:</strong> ${escapeHtml(hint)}</div>`).join("")}</div>` : "";
+  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="help-button ${hintCoolingDown ? "cooldown" : ""}" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
 }
 
 function renderFinalCode() {
@@ -188,6 +194,8 @@ async function registerPlayer() {
     sessionStorage.setItem("trig-player-id", state.playerId);
     sessionStorage.setItem("trig-character", state.selectedCharacter);
     state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    state.hints = {};
+    state.hintCooldownUntil = 0;
     state.storyPage = 0;
     state.view = "story";
   } catch (error) { notify(error.message); state.view = "characters"; }
@@ -210,9 +218,21 @@ async function loadStage() {
 
 async function useHint() {
   const question = state.stage.exercises[state.questionIndex];
+  if (Date.now() < state.hintCooldownUntil) return;
+  state.hintCooldownUntil = Date.now() + 3000;
+  render();
+  clearTimeout(useHint.cooldownTimer);
+  useHint.cooldownTimer = setTimeout(() => {
+    if (state.view === "question") render();
+  }, 3050);
   try {
     const data = await api("/hint", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id }) });
-    state.hint = data.hint || data.message;
+    if (data.hint) {
+      const savedHints = state.hints[question.id] || [];
+      if (!savedHints.includes(data.hint)) state.hints[question.id] = [...savedHints, data.hint];
+    } else if (data.message) {
+      notify(data.message);
+    }
     render();
   } catch (error) { notify(error.message); }
 }
@@ -257,6 +277,8 @@ async function restart() {
     const options = state.playerId ? { method: "POST" } : { method: "POST", body: JSON.stringify({ player_name: state.playerName }) };
     const data = await api(path, options);
     state.progress = data.progress;
+    state.hints = {};
+    state.hintCooldownUntil = 0;
     state.stageId = 1;
     state.view = "map";
   } catch (error) { notify(error.message); state.view = "start"; }
@@ -298,7 +320,7 @@ app.addEventListener("click", async event => {
   if (action === "hint") await useHint();
   if (action === "answer") await answerQuestion();
   if (action === "close-modal") { state.modal = null; render(); }
-  if (action === "next-question") { state.modal = null; state.questionIndex += 1; state.hint = ""; state.view = "instruction"; render(); }
+  if (action === "next-question") { state.modal = null; state.questionIndex += 1; state.hintCooldownUntil = 0; state.view = "instruction"; render(); }
   if (action === "next-stage") { state.modal = null; state.view = "map"; render(); }
   if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
   if (action === "restart") await restart();

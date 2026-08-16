@@ -123,6 +123,9 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .corner-nav-button:hover, .corner-nav-button:focus-visible,
 .help-button:hover, .help-button:focus-visible { transform: translateY(-2px) scale(1.05); filter: brightness(1.12); }
 .corner-nav-button:active, .help-button:active { transform: translateY(1px) scale(.98); }
+.help-button:disabled { cursor: wait; filter: grayscale(.35); opacity: .58; }
+.help-button.cooldown { animation: hint-cooldown 1s ease-in-out infinite; }
+@keyframes hint-cooldown { 50% { box-shadow: inset 0 -5px rgba(122,76,0,.28), 0 0 8px rgba(255,209,22,.25); } }
 
 .hero { text-align: center; }
 .hero-logo {
@@ -277,6 +280,8 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 }
 .pink-button { border-color: #ff84d1; background: linear-gradient(#ff80cb, #e12a91); box-shadow: 0 0 0 4px #4b1350, 0 0 22px rgba(255, 77, 180, .45); }
 .hint-box { margin-top: 18px; padding: 16px; border-left: 4px solid #ffd116; background: rgba(255, 209, 22, .1); color: #ffe77f; }
+.hints-list { width: min(760px, 100%); margin: 14px auto 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hints-list .hint-box { margin: 0; padding: 12px 14px; font-size: 14px; line-height: 1.35; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(1, 2, 24, .82); backdrop-filter: blur(7px); }
 .modal { position: relative; width: min(780px, 94vw); max-height: 88vh; padding: clamp(24px, 4vh, 42px); border: 3px solid var(--cyan); border-radius: 18px; background: #070b36; box-shadow: 0 0 40px rgba(0, 217, 255, .5); text-align: center; overflow: hidden; }
@@ -313,6 +318,15 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .stage-chip { padding: 16px 8px; border: 2px solid #2c46a7; background: #0a0d3b; text-align: center; opacity: .55; }
 .stage-chip.active, .stage-chip.done { opacity: 1; border-color: var(--cyan); }
 .stage-chip.done { border-color: var(--green); }
+.code-tracker { margin-top: 18px; padding: 12px 14px; border: 1px solid #315bc2; border-radius: 13px; background: rgba(3,12,55,.72); }
+.code-tracker > p { margin: 0 0 9px; color: var(--cyan); font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: .16em; text-align: center; }
+.code-tracker > div { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.code-slot { min-width: 0; padding: 8px 6px; display: grid; place-items: center; gap: 2px; border: 1px solid #253d92; border-radius: 9px; background: #080d42; text-align: center; }
+.code-slot small { color: #8197c5; font-size: 9px; letter-spacing: .1em; }
+.code-slot strong { max-width: 100%; overflow: hidden; color: #60729e; font-family: var(--font-display); font-size: clamp(10px, 1.35vw, 15px); text-overflow: ellipsis; white-space: nowrap; }
+.code-slot.unlocked { border-color: var(--green); background: rgba(20,108,54,.28); box-shadow: 0 0 12px rgba(48,219,84,.2); animation: code-reveal .45s ease-out both; }
+.code-slot.unlocked strong { color: #79ff94; text-shadow: 0 0 9px rgba(48,219,84,.5); }
+@keyframes code-reveal { from { opacity: 0; transform: translateY(8px) scale(.94); } }
 
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 50; transform: translate(-50%, 120px); opacity: 0; padding: 14px 22px; border: 2px solid var(--cyan); border-radius: 8px; background: #06103e; transition: .28s; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
@@ -376,6 +390,9 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .stage-header > span[aria-hidden="true"] { display: none; }
   .hud { justify-self: center; }
   .stage-map { grid-template-columns: 1fr; }
+  .code-tracker > div { display: flex; overflow-x: auto; padding-bottom: 5px; }
+  .code-slot { flex: 0 0 125px; }
+  .hints-list { grid-template-columns: 1fr; }
   .top-actions { top: 15px; right: 15px; }
   .screen { padding-top: 84px; }
   .modal.has-reaction { grid-template-columns: 1fr; gap: 4px; }
@@ -450,6 +467,8 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .hint-box { margin-top: 10px; padding: 10px 14px; font-size: clamp(12px, 1.6vh, 15px); }
   .stage-map { margin-top: clamp(12px, 2vh, 24px); }
   .stage-chip { padding: clamp(8px, 1.4vh, 14px) 8px; }
+  .code-tracker { margin-top: clamp(9px, 1.4vh, 15px); padding: 9px 12px; }
+  .code-slot { padding: 6px 5px; }
   .story-panel, .instruction-panel { min-height: 0; }
   .story-text { min-height: clamp(75px, 14vh, 120px); font-size: clamp(14px, 2vh, 19px); }
   .instruction-text { font-size: clamp(13px, 1.8vh, 17px); line-height: 1.4; }
