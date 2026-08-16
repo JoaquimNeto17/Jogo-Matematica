@@ -1,0 +1,322 @@
+// Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
+const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api";
+
+// Mesmas imagens cadastradas no backend original (characters.py).
+// A rota /game/characters continua sendo a fonte principal; esta lista evita
+// que a seleção fique vazia enquanto a API estiver carregando.
+const BACKEND_CHARACTERS = [
+  { id: 1, name: "Theo", role: "Guardião dos Ângulos", image_url: "https://res.cloudinary.com/pltlrh9n/image/upload/v1786797938/menino.png" },
+  { id: 2, name: "Ayla", role: "Exploradora dos Gráficos", image_url: "https://res.cloudinary.com/pltlrh9n/image/upload/v1786797937/menina.png" },
+  { id: 3, name: "Pixel", role: "Estrategista das Dicas", image_url: "https://res.cloudinary.com/pltlrh9n/image/upload/v1786797938/gato.png" },
+  { id: 4, name: "Bolt", role: "Mestre dos Períodos", image_url: "https://res.cloudinary.com/pltlrh9n/image/upload/v1786797938/c%C3%A3o.png" },
+  { id: 5, name: "Íris", role: "Engenheira dos Problemas", image_url: "https://res.cloudinary.com/pltlrh9n/image/upload/v1786797937/passarinho.png" },
+];
+
+const REACTION_IMAGES = {
+  1: { happy: "assets/reactions/theo_feliz.webp", sad: "assets/reactions/theo_triste.webp" },
+  2: { happy: "assets/reactions/ayla_feliz.webp", sad: "assets/reactions/ayla_triste.webp" },
+  3: { happy: "assets/reactions/pixel_feliz.webp", sad: "assets/reactions/pixel_triste.webp" },
+  4: { happy: "assets/reactions/bolt_feliz.webp", sad: "assets/reactions/bolt_triste.webp" },
+  5: { happy: "assets/reactions/iris_feliz.webp", sad: "assets/reactions/iris_triste.webp" },
+};
+
+const state = {
+  view: "start",
+  overview: null,
+  characters: BACKEND_CHARACTERS,
+  playerName: sessionStorage.getItem("trig-player") || "",
+  playerId: sessionStorage.getItem("trig-player-id") || "",
+  selectedCharacter: Number(sessionStorage.getItem("trig-character")) || null,
+  stageId: 1,
+  stage: null,
+  questionIndex: 0,
+  selectedOption: null,
+  progress: null,
+  hint: "",
+  storyPage: 0,
+  modal: null,
+  certificate: null,
+};
+
+const app = document.querySelector("#app");
+const toast = document.querySelector("#toast");
+
+async function api(path, options = {}) {
+  const response = await fetch(`${API}${path}`, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || data.errors?.join(" ") || "Não foi possível acessar o servidor.");
+  return data;
+}
+
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+}
+
+function storyPages() {
+  const fallback = "Uma falha atingiu o Centro de Treinamento Trigonométrico. Os códigos que mantêm o sistema ativo foram espalhados pelas cinco fases.\n\nSua missão é resolver os desafios, recuperar cada parte do código e restaurar o sistema.";
+  const text = String(state.overview?.introduction || fallback).trim();
+  const paragraphs = text.split(/\n\s*\n/).map(item => item.trim()).filter(Boolean);
+  if (paragraphs.length >= 2) {
+    const middle = Math.ceil(paragraphs.length / 2);
+    return [paragraphs.slice(0, middle).join("\n\n"), paragraphs.slice(middle).join("\n\n")];
+  }
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(item => item.trim()).filter(Boolean) || [text];
+  if (sentences.length < 2) return [sentences[0], "Prepare-se para superar as cinco fases e recuperar o código final."];
+  const middle = Math.ceil(sentences.length / 2);
+  return [sentences.slice(0, middle).join(" "), sentences.slice(middle).join(" ")];
+}
+
+function notify(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(notify.timer);
+  notify.timer = setTimeout(() => toast.classList.remove("show"), 3200);
+}
+
+function loading() {
+  app.innerHTML = `<section class="screen"><div class="loading" aria-label="Carregando"></div></section>`;
+}
+
+function modalHtml() {
+  if (!state.modal) return "";
+  const { type = "", title, message, code, reaction, action = "Fechar", next = "close-modal" } = state.modal;
+  const reactionImage = reaction ? REACTION_IMAGES[state.selectedCharacter]?.[reaction] : "";
+  return `<div class="modal-backdrop"><section class="modal ${type}">${reactionImage ? `<img class="reaction-character reaction-${reaction}" src="${reactionImage}" alt="Reação de ${escapeHtml(state.characters.find(item => item.id === state.selectedCharacter)?.name || "personagem")}">` : ""}<div class="reaction-content"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}<button class="primary-button" data-action="${next}">${escapeHtml(action)}</button></div></section></div>`;
+}
+
+function render() {
+  const views = { start: renderStart, name: renderName, characters: renderCharacters, story: renderStory, map: renderMap, stage: renderStage, instruction: renderInstruction, question: renderQuestion, finalCode: renderFinalCode, completed: renderCompleted, certificate: renderCertificate, gameOver: renderGameOver };
+  app.innerHTML = (views[state.view] || renderStart)() + modalHtml();
+}
+
+function renderStart() {
+  return `<section class="screen hero"><div class="top-actions"><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
+}
+
+function renderName() {
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Digite seu nome</h1><form class="name-form" id="name-form"><label for="player-name">Nome do jogador</label><input id="player-name" name="playerName" maxlength="40" autocomplete="name" value="${escapeHtml(state.playerName)}" placeholder="Como devemos chamar você?" required><button class="primary-button" type="submit">AVANÇAR</button></form></div></section>`;
+}
+
+function renderCharacters() {
+  const cards = state.characters.map(character => `<button class="character-card ${state.selectedCharacter === character.id ? "selected" : ""}" data-character="${character.id}"><img src="${escapeHtml(character.image_url)}" alt="${escapeHtml(character.name)}"><span><strong>${escapeHtml(character.name)}</strong><small>${escapeHtml(character.role)}</small></span></button>`).join("");
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Escolha seu personagem</h1><div class="characters">${cards}</div><div class="game-actions"><button class="primary-button" data-action="register" ${state.selectedCharacter ? "" : "disabled"}>AVANÇAR</button></div></div></section>`;
+}
+
+function renderStory() {
+  const pages = storyPages();
+  const page = Math.min(state.storyPage, pages.length - 1);
+  const isLast = page === pages.length - 1;
+  const character = state.characters.find(item => item.id === state.selectedCharacter);
+  return `<section class="screen story-screen"><article class="panel story-panel"><div class="story-orbit" aria-hidden="true"><span>sen</span><span>cos</span><span>π</span><span>√</span></div><div class="story-copy"><p class="screen-kicker">TRANSMISSÃO ${page + 1} DE ${pages.length}</p><h1 class="panel-title">${page === 0 ? "O sistema precisa de você" : "Sua missão começa agora"}</h1><p class="lead story-text">${escapeHtml(pages[page])}</p><div class="story-progress" aria-label="Parte ${page + 1} de ${pages.length}">${pages.map((_, index) => `<span class="${index === page ? "active" : ""}"></span>`).join("")}</div><div class="game-actions">${page > 0 ? `<button class="secondary-button" data-action="story-back">← VOLTAR</button>` : ""}<button class="primary-button compact-button" data-action="${isLast ? "open-map" : "story-next"}">${isLast ? "ENTRAR NO DESAFIO" : "CONTINUAR →"}</button></div></div>${character ? `<img class="story-character" src="${escapeHtml(character.image_url)}" alt="${escapeHtml(character.name)}">` : ""}</article></section>`;
+}
+
+function renderMap() {
+  const progress = state.progress || { current_stage: 1, completed_stages: [] };
+  const chips = Array.from({ length: 5 }, (_, index) => {
+    const id = index + 1;
+    const done = progress.completed_stages?.includes(id);
+    const active = id === progress.current_stage;
+    return `<div class="stage-chip ${done ? "done" : active ? "active" : ""}"><strong>FASE ${id}</strong><br><small>${done ? "CONCLUÍDA" : active ? "LIBERADA" : "BLOQUEADA"}</small></div>`;
+  }).join("");
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><div class="game-actions"><button class="primary-button" data-action="load-stage">ENTRAR NA FASE ${progress.current_stage}</button></div></div></section>`;
+}
+
+function renderStage() {
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Fase ${state.stageId}</h1><h2 style="text-align:center">${escapeHtml(state.stage?.title)}</h2><p class="lead" style="text-align:center">${escapeHtml(state.stage?.intro)}</p><div class="game-actions"><button class="primary-button" data-action="begin-questions">COMEÇAR</button></div></div></section>`;
+}
+
+function renderInstruction() {
+  const question = state.stage?.exercises?.[state.questionIndex];
+  if (!question) return renderStage();
+  const instruction = question.instruction || "Leia com atenção os dados da questão, identifique a relação trigonométrica adequada e compare seu resultado com as alternativas.";
+  const character = state.characters.find(item => item.id === state.selectedCharacter);
+  return `<section class="screen instruction-screen"><header class="stage-header"><button class="secondary-button" data-action="open-map">← MAPA</button><div class="stage-heading">FASE ${state.stageId}</div><div class="question-counter">QUESTÃO ${state.questionIndex + 1} DE ${state.stage.exercises.length}</div></header><article class="panel instruction-panel"><div class="instruction-copy"><p class="screen-kicker">BRIEFING DO EXERCÍCIO</p><h1 class="panel-title">Como resolver</h1><p class="instruction-text">${escapeHtml(instruction)}</p><div class="instruction-steps"><div><span>1</span><strong>LEIA</strong><small>Encontre os dados importantes.</small></div><div><span>2</span><strong>RELACIONE</strong><small>Escolha a função trigonométrica.</small></div><div><span>3</span><strong>RESOLVA</strong><small>Calcule e marque a alternativa.</small></div></div><div class="game-actions"><button class="primary-button compact-button" data-action="start-question">IR PARA A QUESTÃO →</button></div></div><div class="instruction-visual" aria-hidden="true"><div class="math-card"><span class="math-angle">30°</span><div class="triangle"><i></i></div><strong>sen · cos · tg</strong></div>${character ? `<img src="${escapeHtml(character.image_url)}" alt="">` : ""}</div></article></section>`;
+}
+
+function renderQuestion() {
+  const question = state.stage?.exercises?.[state.questionIndex];
+  if (!question) return renderStage();
+  const progress = state.progress || { score: 0, wrong_answers: 0 };
+  const answers = question.options.map(option => `<button class="answer ${state.selectedOption === option.id ? "selected" : ""}" data-option="${option.id}">${escapeHtml(option.id)}) ${escapeHtml(option.text).replace("raiz de 3", "√3")}</button>`).join("");
+  const character = state.characters.find(item => item.id === state.selectedCharacter);
+  return `<section class="screen"><header class="stage-header"><button class="secondary-button" data-action="open-map">← VOLTAR</button><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${state.hint ? `<div class="hint-box"><strong>DICA:</strong> ${escapeHtml(state.hint)}</div>` : ""}<div class="game-actions"><button class="secondary-button" data-action="hint">? PEDIR DICA</button><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
+}
+
+function renderFinalCode() {
+  const codes = state.progress?.unlocked_codes?.join(" · ") || "";
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Digite o código final</h1><p class="lead" style="text-align:center">Códigos recuperados: <strong class="code">${escapeHtml(codes)}</strong></p><form id="code-form" class="name-form"><input class="code-input" name="code" placeholder="Digite a frase completa" required><button class="primary-button" type="submit">VALIDAR CÓDIGO</button></form></div></section>`;
+}
+
+function renderCompleted() {
+  const classification = state.progress?.classification?.title || state.progress?.classification || "Mestre das Funções Trigonométricas";
+  return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Parabéns!</h1><p class="code">${escapeHtml(state.playerName)}</p><p>Você concluiu o Desafio Trigonométrico.</p><p>Pontuação final: <strong>${state.progress?.score || 0} pontos</strong></p><p>Classificação: <strong>${escapeHtml(classification)}</strong></p><div class="game-actions final-actions"><button class="primary-button" data-action="certificate">CERTIFICADO</button><button class="secondary-button" data-action="restart">JOGAR NOVAMENTE</button></div></div></section>`;
+}
+
+function renderCertificate() {
+  const certificate = state.certificate;
+  if (!certificate) return renderCompleted();
+  const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+  return `<section class="screen certificate-screen"><article class="certificate" id="certificate-document"><div class="certificate-corners" aria-hidden="true"></div><div class="certificate-symbol">π</div><p class="certificate-eyebrow">CERTIFICADO DE CONCLUSÃO</p><h1>Desafio Trigonométrico</h1><p class="certificate-text">Certificamos que</p><h2>${escapeHtml(certificate.player_name)}</h2><p class="certificate-text">concluiu todas as etapas do Desafio Trigonométrico, demonstrando conhecimentos sobre seno, cosseno, tangente e funções trigonométricas.</p><div class="certificate-results"><span><small>PONTUAÇÃO</small><strong>${escapeHtml(certificate.score)} pontos</strong></span><span><small>CLASSIFICAÇÃO</small><strong>${escapeHtml(certificate.title)}</strong></span></div><p class="certificate-date">Emitido em ${escapeHtml(date)}</p><div class="certificate-signature"><span></span><strong>Desafio Trigonométrico</strong><small>Projeto educacional</small></div></article><div class="certificate-actions"><button class="secondary-button" data-action="back-completed">← VOLTAR</button><button class="primary-button" data-action="print-certificate">IMPRIMIR OU SALVAR EM PDF</button></div></section>`;
+}
+
+function renderGameOver() {
+  return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Tentativas encerradas</h1><p class="lead">Você atingiu o limite de três erros. Reinicie o progresso para tentar novamente.</p><button class="primary-button" data-action="restart">REINICIAR</button></div></section>`;
+}
+
+async function bootstrap() {
+  try {
+    const [overview, characters] = await Promise.all([api(""), api("/characters")]);
+    state.overview = overview;
+    state.characters = characters.characters?.length ? characters.characters : BACKEND_CHARACTERS;
+    if (state.playerName) state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+  } catch (error) {
+    notify(error.message);
+  }
+  render();
+}
+
+async function registerPlayer() {
+  loading();
+  try {
+    const data = await api("/players", { method: "POST", body: JSON.stringify({ player_name: state.playerName, character_id: state.selectedCharacter }) });
+    state.playerId = data.player.id;
+    sessionStorage.setItem("trig-player", state.playerName);
+    sessionStorage.setItem("trig-player-id", state.playerId);
+    sessionStorage.setItem("trig-character", state.selectedCharacter);
+    state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    state.storyPage = 0;
+    state.view = "story";
+  } catch (error) { notify(error.message); state.view = "characters"; }
+  render();
+}
+
+async function loadStage() {
+  loading();
+  try {
+    state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    if (state.progress.game_over) { state.view = "gameOver"; render(); return; }
+    if (state.progress.awaiting_final_code) { state.view = "finalCode"; render(); return; }
+    state.stageId = state.progress.current_stage;
+    state.stage = await api(`/stages/${state.stageId}`);
+    state.questionIndex = Math.max(0, state.stage.exercises.findIndex(question => !state.progress.answered_questions.includes(question.id)));
+    state.view = "stage";
+  } catch (error) { notify(error.message); state.view = "map"; }
+  render();
+}
+
+async function useHint() {
+  const question = state.stage.exercises[state.questionIndex];
+  try {
+    const data = await api("/hint", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id }) });
+    state.hint = data.hint || data.message;
+    render();
+  } catch (error) { notify(error.message); }
+}
+
+async function answerQuestion() {
+  const question = state.stage.exercises[state.questionIndex];
+  loading();
+  try {
+    const data = await api("/answer", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id, selected_option: state.selectedOption }) });
+    state.progress = data.progress;
+    if (state.progress.game_over) { state.view = "gameOver"; render(); return; }
+    if (!data.correct) {
+      const feedback = data.feedback || data.message || "Essa alternativa não está correta. Tente novamente.";
+      state.modal = { type: "error", reaction: "sad", title: "Resposta incorreta", message: `${feedback} Restam ${data.remaining_errors} tentativas.`, action: "TENTAR NOVAMENTE" };
+    } else if (data.stage_completed) {
+      const feedback = data.feedback || data.message || "Resposta correta!";
+      state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: `Código: ${data.code_received}`, action: data.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: data.awaiting_final_code ? "go-final" : "next-stage" };
+    } else {
+      const feedback = data.feedback || data.message || "Resposta correta!";
+      state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: `${feedback} Você ganhou ${data.earned_points} pontos.`, action: "PRÓXIMA PERGUNTA", next: "next-question" };
+    }
+  } catch (error) { notify(error.message); }
+  state.selectedOption = null;
+  render();
+}
+
+async function validateCode(code) {
+  loading();
+  try {
+    const data = await api("/final-code", { method: "POST", body: JSON.stringify({ player_name: state.playerName, code }) });
+    state.progress = data.progress;
+    if (data.valid) state.view = "completed";
+    else { state.view = "finalCode"; state.modal = { type: "error", title: "Código incorreto", message: data.message, action: "CORRIGIR" }; }
+  } catch (error) { state.view = "finalCode"; notify(error.message); }
+  render();
+}
+
+async function restart() {
+  loading();
+  try {
+    const path = state.playerId ? `/players/${encodeURIComponent(state.playerId)}/restart` : "/restart";
+    const options = state.playerId ? { method: "POST" } : { method: "POST", body: JSON.stringify({ player_name: state.playerName }) };
+    const data = await api(path, options);
+    state.progress = data.progress;
+    state.stageId = 1;
+    state.view = "map";
+  } catch (error) { notify(error.message); state.view = "start"; }
+  render();
+}
+
+async function loadCertificate() {
+  loading();
+  try {
+    const path = state.playerId
+      ? `/players/${encodeURIComponent(state.playerId)}/certificate`
+      : `/certificate/${encodeURIComponent(state.playerName)}`;
+    const data = await api(path);
+    state.certificate = data.certificate;
+    state.view = "certificate";
+  } catch (error) {
+    state.view = "completed";
+    notify(error.message);
+  }
+  render();
+}
+
+app.addEventListener("click", async event => {
+  const character = event.target.closest("[data-character]");
+  if (character) { state.selectedCharacter = Number(character.dataset.character); render(); return; }
+  const option = event.target.closest("[data-option]");
+  if (option) { state.selectedOption = option.dataset.option; render(); return; }
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (!action) return;
+  if (action === "start") { state.view = "name"; render(); }
+  if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
+  if (action === "register") await registerPlayer();
+  if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
+  if (action === "story-back") { state.storyPage = Math.max(0, state.storyPage - 1); render(); }
+  if (action === "open-map") { state.modal = null; state.view = "map"; render(); }
+  if (action === "load-stage") await loadStage();
+  if (action === "begin-questions") { state.view = "instruction"; render(); }
+  if (action === "start-question") { state.view = "question"; render(); }
+  if (action === "hint") await useHint();
+  if (action === "answer") await answerQuestion();
+  if (action === "close-modal") { state.modal = null; render(); }
+  if (action === "next-question") { state.modal = null; state.questionIndex += 1; state.hint = ""; state.view = "instruction"; render(); }
+  if (action === "next-stage") { state.modal = null; state.view = "map"; render(); }
+  if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
+  if (action === "restart") await restart();
+  if (action === "certificate") await loadCertificate();
+  if (action === "print-certificate") window.print();
+  if (action === "back-completed") { state.view = "completed"; render(); }
+});
+
+app.addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  if (event.target.id === "name-form") {
+    state.playerName = String(form.get("playerName") || "").trim();
+    if (state.playerName.length < 2) return notify("Digite um nome com pelo menos dois caracteres.");
+    state.view = "characters";
+    render();
+  }
+  if (event.target.id === "code-form") validateCode(String(form.get("code") || ""));
+});
+
+bootstrap();
