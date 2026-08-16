@@ -1,4 +1,6 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
+const FRONTEND_BUILD = "2026.08.16-05";
+console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
 
@@ -14,11 +16,11 @@ const BACKEND_CHARACTERS = [
 ];
 
 const REACTION_IMAGES = {
-  1: { happy: "assets/reactions/theo_feliz.webp", sad: "assets/reactions/theo_triste.webp" },
-  2: { happy: "assets/reactions/ayla_feliz.webp", sad: "assets/reactions/ayla_triste.webp" },
-  3: { happy: "assets/reactions/pixel_feliz.webp", sad: "assets/reactions/pixel_triste.webp" },
-  4: { happy: "assets/reactions/bolt_feliz.webp", sad: "assets/reactions/bolt_triste.webp" },
-  5: { happy: "assets/reactions/iris_feliz.webp", sad: "assets/reactions/iris_triste.webp" },
+  1: { happy: "assets/reactions/theo_feliz.webp?v=2", sad: "assets/reactions/theo_triste.webp?v=2" },
+  2: { happy: "assets/reactions/ayla_feliz.webp?v=2", sad: "assets/reactions/ayla_triste.webp?v=2" },
+  3: { happy: "assets/reactions/pixel_feliz.webp?v=2", sad: "assets/reactions/pixel_triste.webp?v=2" },
+  4: { happy: "assets/reactions/bolt_feliz.webp?v=2", sad: "assets/reactions/bolt_triste.webp?v=2" },
+  5: { happy: "assets/reactions/iris_feliz.webp?v=2", sad: "assets/reactions/iris_triste.webp?v=2" },
 };
 
 const state = {
@@ -35,6 +37,7 @@ const state = {
   progress: null,
   hints: {},
   hintCooldownUntil: 0,
+  newHintKey: null,
   storyPage: 0,
   modal: null,
   certificate: null,
@@ -42,6 +45,8 @@ const state = {
 
 const app = document.querySelector("#app");
 const toast = document.querySelector("#toast");
+let renderedView = null;
+let lastAction = { name: "", time: 0 };
 
 async function api(path, options = {}) {
   const response = await fetch(`${API}${path}`, {
@@ -91,7 +96,11 @@ function modalHtml() {
 
 function render() {
   const views = { start: renderStart, name: renderName, characters: renderCharacters, story: renderStory, map: renderMap, stage: renderStage, instruction: renderInstruction, question: renderQuestion, finalCode: renderFinalCode, completed: renderCompleted, certificate: renderCertificate, gameOver: renderGameOver };
+  const viewChanged = renderedView !== state.view;
   app.innerHTML = (views[state.view] || renderStart)() + modalHtml();
+  if (!viewChanged) app.querySelector(".screen")?.classList.add("no-screen-animation");
+  renderedView = state.view;
+  state.newHintKey = null;
 }
 
 function renderStart() {
@@ -148,8 +157,11 @@ function renderQuestion() {
   const hintCoolingDown = Date.now() < state.hintCooldownUntil;
   const answers = question.options.map(option => `<button class="answer ${state.selectedOption === option.id ? "selected" : ""}" data-option="${option.id}">${escapeHtml(option.id)}) ${escapeHtml(option.text).replace("raiz de 3", "√3")}</button>`).join("");
   const character = state.characters.find(item => item.id === state.selectedCharacter);
-  const hintsHtml = questionHints.length ? `<div class="hints-list">${questionHints.map((hint, index) => `<div class="hint-box"><strong>DICA ${index + 1}:</strong> ${escapeHtml(hint)}</div>`).join("")}</div>` : "";
-  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="help-button ${hintCoolingDown ? "cooldown" : ""}" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
+  const hintsHtml = questionHints.length ? `<div class="hints-list">${questionHints.map((hint, index) => {
+    const isNew = state.newHintKey === `${question.id}:${index}`;
+    return `<div class="hint-box ${isNew ? "new-hint" : ""}"><strong>DICA ${index + 1}:</strong> ${escapeHtml(hint)}</div>`;
+  }).join("")}</div>` : "";
+  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="help-button" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
 }
 
 function renderFinalCode() {
@@ -220,20 +232,34 @@ async function useHint() {
   const question = state.stage.exercises[state.questionIndex];
   if (Date.now() < state.hintCooldownUntil) return;
   state.hintCooldownUntil = Date.now() + 3000;
-  render();
+  const hintButton = app.querySelector('[data-action="hint"]');
+  if (hintButton) {
+    hintButton.disabled = true;
+    hintButton.title = "Aguarde para pedir outra dica";
+  }
   clearTimeout(useHint.cooldownTimer);
   useHint.cooldownTimer = setTimeout(() => {
-    if (state.view === "question") render();
+    state.hintCooldownUntil = 0;
+    const currentButton = app.querySelector('[data-action="hint"]');
+    if (state.view === "question" && currentButton) {
+      currentButton.disabled = false;
+      currentButton.title = "Pedir dica";
+    }
   }, 3050);
   try {
     const data = await api("/hint", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id }) });
     if (data.hint) {
       const savedHints = state.hints[question.id] || [];
-      if (!savedHints.includes(data.hint)) state.hints[question.id] = [...savedHints, data.hint];
+      if (!savedHints.includes(data.hint)) {
+        state.hints[question.id] = [...savedHints, data.hint];
+        state.newHintKey = `${question.id}:${savedHints.length}`;
+        render();
+      } else {
+        notify("Esta dica já está visível.");
+      }
     } else if (data.message) {
       notify(data.message);
     }
-    render();
   } catch (error) { notify(error.message); }
 }
 
@@ -308,6 +334,9 @@ app.addEventListener("click", async event => {
   if (option) { state.selectedOption = option.dataset.option; render(); return; }
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (!action) return;
+  const now = performance.now();
+  if (lastAction.name === action && now - lastAction.time < 500) return;
+  lastAction = { name: action, time: now };
   if (action === "start") { state.view = "name"; render(); }
   if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
   if (action === "register") await registerPlayer();

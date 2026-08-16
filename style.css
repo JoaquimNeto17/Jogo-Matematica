@@ -76,6 +76,7 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   justify-content: center;
   animation: appear .35s ease-out;
 }
+.screen.no-screen-animation { animation: none; }
 
 @keyframes appear { from { opacity: 0; transform: scale(.985); } }
 
@@ -124,8 +125,6 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .help-button:hover, .help-button:focus-visible { transform: translateY(-2px) scale(1.05); filter: brightness(1.12); }
 .corner-nav-button:active, .help-button:active { transform: translateY(1px) scale(.98); }
 .help-button:disabled { cursor: wait; filter: grayscale(.35); opacity: .58; }
-.help-button.cooldown { animation: hint-cooldown 1s ease-in-out infinite; }
-@keyframes hint-cooldown { 50% { box-shadow: inset 0 -5px rgba(122,76,0,.28), 0 0 8px rgba(255,209,22,.25); } }
 
 .hero { text-align: center; }
 .hero-logo {
@@ -282,6 +281,13 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .hint-box { margin-top: 18px; padding: 16px; border-left: 4px solid #ffd116; background: rgba(255, 209, 22, .1); color: #ffe77f; }
 .hints-list { width: min(760px, 100%); margin: 14px auto 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .hints-list .hint-box { margin: 0; padding: 12px 14px; font-size: 14px; line-height: 1.35; }
+.question-screen { animation: none; }
+.hint-box.new-hint { animation: reveal-hint .48s ease-out 1 both; }
+@keyframes reveal-hint {
+  0% { opacity: 0; transform: translateY(-5px); filter: brightness(1.75); }
+  55% { opacity: 1; transform: translateY(1px); filter: brightness(1.3); }
+  100% { transform: translateY(0); filter: brightness(1); }
+}
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(1, 2, 24, .82); backdrop-filter: blur(7px); }
 .modal { position: relative; width: min(780px, 94vw); max-height: 88vh; padding: clamp(24px, 4vh, 42px); border: 3px solid var(--cyan); border-radius: 18px; background: #070b36; box-shadow: 0 0 40px rgba(0, 217, 255, .5); text-align: center; overflow: hidden; }
