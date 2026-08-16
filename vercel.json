@@ -2,11 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://jogo-trigonometria-sigma.vercel.app/game/:path*"
-    },
-    {
-      "source": "/api",
-      "destination": "https://jogo-trigonometria-sigma.vercel.app/game"
+      "destination": "https://jogo-trigonometria-sigma.vercel.app/:path*"
     }
   ]
 }

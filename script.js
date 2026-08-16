@@ -1,6 +1,6 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
-const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api";
+const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
 
 // Mesmas imagens cadastradas no backend original (characters.py).
 // A rota /game/characters continua sendo a fonte principal; esta lista evita
