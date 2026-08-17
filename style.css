@@ -373,7 +373,7 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 }
 .tutorial-target {
   position: relative;
-  z-index: 82 !important;
+  z-index: auto !important;
   border-radius: 16px;
   box-shadow: 0 0 0 5px #ffd116, 0 0 38px rgba(255, 209, 22, .9) !important;
   animation: tutorial-pulse 1.25s ease-in-out infinite;
