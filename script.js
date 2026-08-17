@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.16-07";
+const FRONTEND_BUILD = "2026.08.16-08";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -88,6 +88,16 @@ function notify(message) {
   notify.timer = setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
+function tutorialWasSeen() {
+  try { return localStorage.getItem("trig-tutorial-seen") === "1"; }
+  catch { return false; }
+}
+
+function saveTutorialAsSeen() {
+  try { localStorage.setItem("trig-tutorial-seen", "1"); }
+  catch { /* O tutorial continua funcionando mesmo sem armazenamento local. */ }
+}
+
 function loading() {
   app.innerHTML = `<section class="screen"><div class="loading" aria-label="Carregando"></div></section>`;
 }
@@ -121,7 +131,7 @@ function tutorialHtml() {
   if (!state.tutorial.active || state.view !== "start") return "";
   const step = TUTORIAL_STEPS[state.tutorial.step];
   const isLast = state.tutorial.step === TUTORIAL_STEPS.length - 1;
-  return `<div class="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tutorial-title"><section class="tutorial-card"><p class="tutorial-progress">PASSO ${state.tutorial.step + 1} DE ${TUTORIAL_STEPS.length}</p><h2 id="tutorial-title">${escapeHtml(step.title)}</h2><p>${escapeHtml(step.message)}</p><div class="tutorial-actions"><button class="tutorial-skip" data-action="tutorial-close">PULAR</button><button class="tutorial-next" data-action="tutorial-next">${isLast ? "ENTENDI" : "PRÓXIMO"}</button></div></section></div>`;
+  return `<div class="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tutorial-title"><section class="tutorial-card"><p class="tutorial-progress">PASSO ${state.tutorial.step + 1} DE ${TUTORIAL_STEPS.length}</p><h2 id="tutorial-title">${escapeHtml(step.title)}</h2><p>${escapeHtml(step.message)}</p><div class="tutorial-actions"><button type="button" class="tutorial-skip" data-action="tutorial-close">PULAR</button><button type="button" class="tutorial-next" data-action="tutorial-next">${isLast ? "ENTENDI" : "PRÓXIMO"}</button></div></section></div>`;
 }
 
 function highlightTutorialTarget() {
@@ -134,7 +144,7 @@ function highlightTutorialTarget() {
 function closeTutorial() {
   state.tutorial.active = false;
   state.tutorial.step = 0;
-  localStorage.setItem("trig-tutorial-seen", "1");
+  saveTutorialAsSeen();
   render();
 }
 
@@ -149,7 +159,7 @@ function render() {
 }
 
 function renderStart() {
-  return `<section class="screen hero"><div class="top-actions"><button class="icon-button" data-action="tutorial">COMO JOGAR</button><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
+  return `<section class="screen hero"><div class="top-actions"><button type="button" class="icon-button" data-action="tutorial">COMO JOGAR</button><button type="button" class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button type="button" class="primary-button" data-action="start">▶ INICIAR</button></section>`;
 }
 
 function renderName() {
@@ -239,7 +249,7 @@ async function bootstrap() {
   } catch (error) {
     notify(error.message);
   }
-  state.tutorial.active = !localStorage.getItem("trig-tutorial-seen");
+  state.tutorial.active = !tutorialWasSeen();
   render();
 }
 
@@ -396,16 +406,29 @@ app.addEventListener("click", async event => {
   if (option) { state.selectedOption = option.dataset.option; render(); return; }
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (!action) return;
+  if (action === "tutorial") {
+    state.tutorial.active = true;
+    state.tutorial.step = 0;
+    render();
+    return;
+  }
+  if (action === "tutorial-next") {
+    if (state.tutorial.step < TUTORIAL_STEPS.length - 1) {
+      state.tutorial.step += 1;
+      render();
+    } else {
+      closeTutorial();
+    }
+    return;
+  }
+  if (action === "tutorial-close") {
+    closeTutorial();
+    return;
+  }
   const now = performance.now();
   if (lastAction.name === action && now - lastAction.time < 500) return;
   lastAction = { name: action, time: now };
   if (action === "start") { state.view = "name"; render(); }
-  if (action === "tutorial") { state.tutorial.active = true; state.tutorial.step = 0; render(); }
-  if (action === "tutorial-next") {
-    if (state.tutorial.step < TUTORIAL_STEPS.length - 1) { state.tutorial.step += 1; render(); }
-    else closeTutorial();
-  }
-  if (action === "tutorial-close") closeTutorial();
   if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
   if (action === "register") await registerPlayer();
   if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
