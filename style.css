@@ -80,7 +80,7 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 
 @keyframes appear { from { opacity: 0; transform: scale(.985); } }
 
-.top-actions { position: absolute; top: 28px; right: 32px; display: flex; gap: 12px; z-index: 4; }
+.top-actions { position: absolute; top: 28px; right: 32px; display: flex; align-items: center; gap: 12px; z-index: 4; }
 
 .icon-button, .secondary-button {
   min-height: 48px;
@@ -97,6 +97,8 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .icon-button:hover, .secondary-button:hover,
 .icon-button:focus-visible, .secondary-button:focus-visible { transform: translateY(-2px); filter: brightness(1.14); box-shadow: inset 0 -5px rgba(10, 4, 49, .28), 0 0 0 3px #151747, 0 0 25px rgba(119, 78, 255, .75); }
 .icon-button:active, .secondary-button:active { transform: translateY(1px); }
+.how-to-button { border-color: var(--cyan); background: linear-gradient(180deg, #164d91, #092759); box-shadow: inset 0 -5px rgba(1, 10, 42, .35), 0 0 0 3px #0b1746, 0 0 18px rgba(0, 217, 255, .42); }
+.how-to-button span { width: 24px; height: 24px; margin-right: 6px; display: inline-grid; place-items: center; border: 2px solid currentColor; border-radius: 50%; line-height: 1; }
 
 .corner-nav-button,
 .help-button {
@@ -304,7 +306,7 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   100% { transform: translateY(0); filter: brightness(1); }
 }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(1, 2, 24, .82); backdrop-filter: blur(7px); }
+.modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(1, 2, 24, .88); backdrop-filter: blur(7px); isolation: isolate; }
 .modal { position: relative; width: min(780px, 94vw); max-height: 88vh; padding: clamp(24px, 4vh, 42px); border: 3px solid var(--cyan); border-radius: 18px; background: #070b36; box-shadow: 0 0 40px rgba(0, 217, 255, .5); text-align: center; overflow: hidden; }
 .modal.has-reaction { display: grid; grid-template-columns: minmax(180px, .7fr) 1fr; align-items: center; gap: clamp(12px, 2vw, 28px); padding: clamp(18px, 3vh, 34px); }
 .simple-modal { width: min(640px, 92vw); }
@@ -320,6 +322,20 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .modal.success { border-color: #52f975; }
 .modal.error { border-color: #ff4777; }
 .modal h2 { font-size: 38px; margin-top: 0; }
+.how-to-modal { width: min(860px, 94vw); max-height: min(90vh, 760px); padding: clamp(20px, 3vh, 34px); text-align: left; overflow-y: auto; overscroll-behavior: contain; }
+.modal-close-button { position: absolute; top: 14px; right: 14px; z-index: 2; width: 42px; height: 42px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 10px; color: var(--white); background: rgba(13,21,79,.92); font-size: 29px; line-height: 1; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+.modal-close-button:hover, .modal-close-button:focus-visible { background: #283994; transform: scale(1.04); outline: 2px solid var(--cyan); outline-offset: 2px; }
+.how-to-header { display: flex; align-items: center; gap: 15px; padding-right: 48px; }
+.how-to-symbol { flex: 0 0 52px; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #ffd116; border-radius: 50%; color: #07112f; background: linear-gradient(#ffe764, #eeb608); box-shadow: 0 0 18px rgba(255,209,22,.42); font-family: var(--font-display); font-size: 29px; font-weight: 800; }
+.how-to-header p { margin: 0 0 3px; color: var(--cyan); font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: .16em; }
+.how-to-header h2 { margin: 0; font-size: clamp(28px, 4vw, 42px); text-transform: uppercase; }
+.how-to-intro { margin: 16px 0 18px; color: #d8e9ff; line-height: 1.5; }
+.how-to-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.how-to-steps article { min-width: 0; display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: start; padding: 12px; border: 1px solid rgba(0,217,255,.38); border-radius: 12px; background: rgba(8,27,88,.72); }
+.how-to-steps article > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: #061237; background: var(--cyan); font-family: var(--font-display); font-weight: 800; }
+.how-to-steps strong { display: block; margin: 1px 0 4px; color: #fff; font-family: var(--font-display); font-size: 14px; }
+.how-to-steps p { margin: 0; color: #c7dbf5; font-size: 13px; line-height: 1.35; }
+.how-to-confirm { display: flex; min-width: min(320px, 100%); margin: 20px auto 0; }
 .code { color: #ffd116; font-size: clamp(26px, 5vw, 48px); font-weight: 800; text-shadow: 0 0 15px #cc7f00; }
 .reaction-character { width: 100%; max-height: 52vh; object-fit: contain; filter: drop-shadow(0 10px 16px rgba(0,0,0,.42)); }
 .reaction-happy { animation: celebrate .72s cubic-bezier(.2,.8,.35,1.2) both; }
@@ -461,8 +477,10 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .code-tracker > div { display: flex; overflow-x: auto; padding-bottom: 5px; }
   .code-slot { flex: 0 0 125px; }
   .hints-list { grid-template-columns: 1fr; }
-  .top-actions { top: 15px; right: 15px; }
-  .screen { padding-top: 84px; }
+  .top-actions { top: 12px; left: 12px; right: 12px; justify-content: center; gap: 8px; }
+  .top-actions .icon-button { min-height: 44px; padding: 9px 11px; font-size: 12px; }
+  .how-to-button span { width: 20px; height: 20px; margin-right: 3px; }
+  .screen { padding-top: 78px; }
   .modal.has-reaction { grid-template-columns: 1fr; gap: 4px; }
   .reaction-character { height: min(32vh, 230px); }
   .modal h2 { font-size: 28px; }
@@ -474,6 +492,13 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .screen-kicker { text-align: center; }
   .story-panel .game-actions, .instruction-panel .game-actions { justify-content: center; }
   .corner-nav-button, .help-button { top: 15px; }
+  .how-to-modal { width: min(94vw, 620px); max-height: 90dvh; padding: 18px 15px; }
+  .how-to-header { gap: 10px; }
+  .how-to-symbol { flex-basis: 44px; width: 44px; height: 44px; font-size: 24px; }
+  .how-to-intro { margin: 12px 0; font-size: 14px; }
+  .how-to-steps { grid-template-columns: 1fr; gap: 8px; }
+  .how-to-steps article { padding: 10px; }
+  .how-to-confirm { margin-top: 14px; }
 }
 
 /* Desktop: toda a interface cabe na altura da janela, sem scroll. */

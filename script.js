@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.16-21:06";
+const FRONTEND_BUILD = "2026.08.16-22:10";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -90,6 +90,9 @@ function loading() {
 
 function modalHtml() {
   if (!state.modal) return "";
+  if (state.modal.kind === "how-to-play") {
+    return `<div class="modal-backdrop how-to-backdrop" data-modal-backdrop><section class="modal how-to-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-title"><button class="modal-close-button" data-action="close-modal" aria-label="Fechar instruções" title="Fechar">×</button><header class="how-to-header"><span class="how-to-symbol" aria-hidden="true">?</span><div><p>GUIA RÁPIDO</p><h2 id="how-to-title">Como jogar</h2></div></header><p class="how-to-intro">Complete as cinco fases, recupere as palavras escondidas e monte o código final do Desafio Trigonométrico.</p><div class="how-to-steps"><article><span>1</span><div><strong>IDENTIFIQUE-SE</strong><p>Digite seu nome e escolha o personagem que acompanhará você.</p></div></article><article><span>2</span><div><strong>LEIA AS INSTRUÇÕES</strong><p>Cada exercício possui uma explicação antes da pergunta.</p></div></article><article><span>3</span><div><strong>RESPONDA</strong><p>Selecione uma alternativa e clique em “Responder” para confirmar.</p></div></article><article><span>4</span><div><strong>USE AS DICAS</strong><p>O botão “?” mostra até duas dicas. Aguarde três segundos entre elas.</p></div></article><article><span>5</span><div><strong>CUIDE DAS VIDAS</strong><p>Você possui três vidas. Cada resposta incorreta consome uma tentativa.</p></div></article><article><span>6</span><div><strong>MONTE O CÓDIGO</strong><p>Cada fase libera uma palavra. No final, una todas na ordem correta.</p></div></article></div><button class="primary-button compact-button how-to-confirm" data-action="close-modal">ENTENDI, VAMOS JOGAR</button></section></div>`;
+  }
   const { type = "", title, message, code, reaction, action = "Fechar", next = "close-modal" } = state.modal;
   const reactionImage = reaction ? REACTION_IMAGES[state.selectedCharacter]?.[reaction] : "";
   return `<div class="modal-backdrop"><section class="modal ${type} ${reactionImage ? "has-reaction" : "simple-modal"}">${reactionImage ? `<img class="reaction-character reaction-${reaction}" src="${reactionImage}" alt="Reação de ${escapeHtml(state.characters.find(item => item.id === state.selectedCharacter)?.name || "personagem")}">` : ""}<div class="reaction-content"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}<button class="primary-button compact-button" data-action="${next}">${escapeHtml(action)}</button></div></section></div>`;
@@ -102,10 +105,11 @@ function render() {
   if (!viewChanged) app.querySelector(".screen")?.classList.add("no-screen-animation");
   renderedView = state.view;
   state.newHintKey = null;
+  if (state.modal?.kind === "how-to-play") requestAnimationFrame(() => app.querySelector(".modal-close-button")?.focus());
 }
 
 function renderStart() {
-  return `<section class="screen hero"><div class="top-actions"><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
+  return `<section class="screen hero"><div class="top-actions"><button class="icon-button how-to-button" data-action="how-to-play"><span aria-hidden="true">?</span> COMO JOGAR</button><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
 }
 
 function renderName() {
@@ -345,6 +349,7 @@ async function loadCertificate() {
 }
 
 app.addEventListener("click", async event => {
+  if (event.target.matches("[data-modal-backdrop]")) { state.modal = null; render(); return; }
   const character = event.target.closest("[data-character]");
   if (character) { state.selectedCharacter = Number(character.dataset.character); render(); return; }
   const option = event.target.closest("[data-option]");
@@ -355,6 +360,7 @@ app.addEventListener("click", async event => {
   if (lastAction.name === action && now - lastAction.time < 500) return;
   lastAction = { name: action, time: now };
   if (action === "start") { state.view = "name"; render(); }
+  if (action === "how-to-play") { state.modal = { kind: "how-to-play" }; render(); }
   if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
   if (action === "register") await registerPlayer();
   if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
@@ -373,6 +379,13 @@ app.addEventListener("click", async event => {
   if (action === "certificate") await loadCertificate();
   if (action === "print-certificate") window.print();
   if (action === "back-completed") { state.view = "completed"; render(); }
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && state.modal) {
+    state.modal = null;
+    render();
+  }
 });
 
 app.addEventListener("submit", event => {
