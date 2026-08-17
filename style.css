@@ -360,6 +360,7 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .loading { width: 55px; height: 55px; border: 5px solid rgba(255,255,255,.15); border-top-color: var(--cyan); border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+<<<<<<< HEAD
 .tutorial-overlay {
   position: fixed;
   inset: 0;
@@ -398,6 +399,8 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .tutorial-next { border: 2px solid #8bff98; background: linear-gradient(#48ed61, #15952d); color: white; box-shadow: inset 0 -4px rgba(0, 75, 20, .3); }
 @keyframes tutorial-pulse { 50% { filter: brightness(1.18); } }
 
+=======
+>>>>>>> 7425d960133dd3ba37cdad34d12d1d768e967e92
 .certificate-screen { gap: clamp(10px, 2vh, 20px); }
 .certificate {
   position: relative;
@@ -459,8 +462,6 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .code-slot { flex: 0 0 125px; }
   .hints-list { grid-template-columns: 1fr; }
   .top-actions { top: 15px; right: 15px; }
-  .top-actions .icon-button { min-height: 42px; padding: 9px 11px; font-size: 12px; }
-  .tutorial-overlay { padding: 14px; }
   .screen { padding-top: 84px; }
   .modal.has-reaction { grid-template-columns: 1fr; gap: 4px; }
   .reaction-character { height: min(32vh, 230px); }
