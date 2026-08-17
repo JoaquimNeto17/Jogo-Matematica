@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.16-06";
+const FRONTEND_BUILD = "2026.08.16-08";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -42,6 +42,10 @@ const state = {
   storyPage: 0,
   modal: null,
   certificate: null,
+  tutorial: {
+    active: false,
+    step: 0,
+  },
 };
 
 const app = document.querySelector("#app");
@@ -84,6 +88,16 @@ function notify(message) {
   notify.timer = setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
+function tutorialWasSeen() {
+  try { return localStorage.getItem("trig-tutorial-seen") === "1"; }
+  catch { return false; }
+}
+
+function saveTutorialAsSeen() {
+  try { localStorage.setItem("trig-tutorial-seen", "1"); }
+  catch { /* O tutorial continua funcionando mesmo sem armazenamento local. */ }
+}
+
 function loading() {
   app.innerHTML = `<section class="screen"><div class="loading" aria-label="Carregando"></div></section>`;
 }
@@ -95,17 +109,57 @@ function modalHtml() {
   return `<div class="modal-backdrop"><section class="modal ${type} ${reactionImage ? "has-reaction" : "simple-modal"}">${reactionImage ? `<img class="reaction-character reaction-${reaction}" src="${reactionImage}" alt="Reação de ${escapeHtml(state.characters.find(item => item.id === state.selectedCharacter)?.name || "personagem")}">` : ""}<div class="reaction-content"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}<button class="primary-button compact-button" data-action="${next}">${escapeHtml(action)}</button></div></section></div>`;
 }
 
+const TUTORIAL_STEPS = [
+  {
+    selector: ".hero-logo",
+    title: "Bem-vindo ao desafio!",
+    message: "Você vai avançar por cinco fases, resolver questões de trigonometria e recuperar as partes do código final.",
+  },
+  {
+    selector: '[data-action="credits"]',
+    title: "Créditos",
+    message: "Use este botão quando quiser consultar as informações sobre o projeto.",
+  },
+  {
+    selector: '[data-action="start"]',
+    title: "Comece por aqui",
+    message: "Clique em INICIAR, informe seu nome e escolha o personagem que acompanhará você durante o jogo.",
+  },
+];
+
+function tutorialHtml() {
+  if (!state.tutorial.active || state.view !== "start") return "";
+  const step = TUTORIAL_STEPS[state.tutorial.step];
+  const isLast = state.tutorial.step === TUTORIAL_STEPS.length - 1;
+  return `<div class="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tutorial-title"><section class="tutorial-card"><p class="tutorial-progress">PASSO ${state.tutorial.step + 1} DE ${TUTORIAL_STEPS.length}</p><h2 id="tutorial-title">${escapeHtml(step.title)}</h2><p>${escapeHtml(step.message)}</p><div class="tutorial-actions"><button type="button" class="tutorial-skip" data-action="tutorial-close">PULAR</button><button type="button" class="tutorial-next" data-action="tutorial-next">${isLast ? "ENTENDI" : "PRÓXIMO"}</button></div></section></div>`;
+}
+
+function highlightTutorialTarget() {
+  app.querySelectorAll(".tutorial-target").forEach(element => element.classList.remove("tutorial-target"));
+  if (!state.tutorial.active || state.view !== "start") return;
+  const target = app.querySelector(TUTORIAL_STEPS[state.tutorial.step]?.selector);
+  target?.classList.add("tutorial-target");
+}
+
+function closeTutorial() {
+  state.tutorial.active = false;
+  state.tutorial.step = 0;
+  saveTutorialAsSeen();
+  render();
+}
+
 function render() {
   const views = { start: renderStart, name: renderName, characters: renderCharacters, story: renderStory, map: renderMap, stage: renderStage, instruction: renderInstruction, question: renderQuestion, finalCode: renderFinalCode, completed: renderCompleted, certificate: renderCertificate, gameOver: renderGameOver };
   const viewChanged = renderedView !== state.view;
-  app.innerHTML = (views[state.view] || renderStart)() + modalHtml();
+  app.innerHTML = (views[state.view] || renderStart)() + modalHtml() + tutorialHtml();
   if (!viewChanged) app.querySelector(".screen")?.classList.add("no-screen-animation");
   renderedView = state.view;
   state.newHintKey = null;
+  highlightTutorialTarget();
 }
 
 function renderStart() {
-  return `<section class="screen hero"><div class="top-actions"><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
+  return `<section class="screen hero"><div class="top-actions"><button type="button" class="icon-button" data-action="tutorial">COMO JOGAR</button><button type="button" class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button type="button" class="primary-button" data-action="start">▶ INICIAR</button></section>`;
 }
 
 function renderName() {
@@ -195,6 +249,7 @@ async function bootstrap() {
   } catch (error) {
     notify(error.message);
   }
+  state.tutorial.active = !tutorialWasSeen();
   render();
 }
 
@@ -351,6 +406,25 @@ app.addEventListener("click", async event => {
   if (option) { state.selectedOption = option.dataset.option; render(); return; }
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (!action) return;
+  if (action === "tutorial") {
+    state.tutorial.active = true;
+    state.tutorial.step = 0;
+    render();
+    return;
+  }
+  if (action === "tutorial-next") {
+    if (state.tutorial.step < TUTORIAL_STEPS.length - 1) {
+      state.tutorial.step += 1;
+      render();
+    } else {
+      closeTutorial();
+    }
+    return;
+  }
+  if (action === "tutorial-close") {
+    closeTutorial();
+    return;
+  }
   const now = performance.now();
   if (lastAction.name === action && now - lastAction.time < 500) return;
   lastAction = { name: action, time: now };
