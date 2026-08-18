@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.18-ROUTES-02";
+const FRONTEND_BUILD = "2026.08.18-ROUTES-03";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -91,12 +91,8 @@ function loading() {
 
 function currentStageFromProgress(progress = state.progress) {
   const serverStage = Number(progress?.current_stage);
-  const completedStages = (Array.isArray(progress?.completed_stages) ? progress.completed_stages : [])
-    .map(Number)
-    .filter(stage => Number.isInteger(stage) && stage > 0);
-  const inferredStage = completedStages.length ? Math.max(...completedStages) + 1 : 1;
-  const validServerStage = Number.isInteger(serverStage) && serverStage > 0 ? serverStage : 1;
-  return Math.min(5, Math.max(validServerStage, inferredStage));
+  if (Number.isInteger(serverStage) && serverStage >= 1 && serverStage <= 5) return serverStage;
+  return Math.min(5, Math.max(1, Number(state.stageId) || 1));
 }
 
 function normalizedIds(values = []) {
@@ -119,6 +115,24 @@ function nextUnansweredIndex(exercises = [], progress = state.progress, startAt 
   ));
   if (nextIndex >= 0) return nextIndex;
   return exercises.findIndex(question => !answeredQuestions.has(String(question.id)));
+}
+
+async function continueAfterAnswer() {
+  state.modal = null;
+  state.selectedOption = null;
+  state.hintCooldownUntil = 0;
+  const nextQuestion = nextUnansweredIndex(
+    state.stage?.exercises,
+    state.progress,
+    state.questionIndex + 1,
+  );
+  if (nextQuestion >= 0) {
+    state.questionIndex = nextQuestion;
+    state.view = "instruction";
+    render();
+    return;
+  }
+  await openMap();
 }
 
 function applyProgressRoute(progress, preferredView = "map") {
@@ -368,13 +382,11 @@ async function answerQuestion() {
         state.view = "finalCode";
       } else {
         const nextQuestion = nextUnansweredIndex(state.stage?.exercises, state.progress, state.questionIndex + 1);
-        if (nextQuestion >= 0 && !isStageCompleted(state.progress, state.stageId)) {
+        if (nextQuestion >= 0) {
           state.questionIndex = nextQuestion;
           state.view = "instruction";
           notify("Progresso sincronizado. Continuando na próxima questão.");
         } else {
-          state.stageId = currentStageFromProgress(state.progress);
-          sessionStorage.setItem("trig-stage", String(state.stageId));
           state.stage = null;
           state.view = "map";
           notify("Fase concluída. Progresso atualizado.");
@@ -464,7 +476,7 @@ app.addEventListener("click", async event => {
   if (action === "hint") await useHint();
   if (action === "answer") await answerQuestion();
   if (action === "close-modal") { state.modal = null; render(); }
-  if (action === "next-question") { state.modal = null; state.questionIndex += 1; state.hintCooldownUntil = 0; state.view = "instruction"; render(); }
+  if (action === "next-question") await continueAfterAnswer();
   if (action === "next-stage") await openMap();
   if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
   if (action === "restart") await restart();
