@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.18-ROUTES-01";
+const FRONTEND_BUILD = "2026.08.18-ROUTES-02";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -90,8 +90,35 @@ function loading() {
 }
 
 function currentStageFromProgress(progress = state.progress) {
-  const stage = Number(progress?.current_stage);
-  return Number.isInteger(stage) && stage > 0 ? stage : Math.max(1, Number(state.stageId) || 1);
+  const serverStage = Number(progress?.current_stage);
+  const completedStages = (Array.isArray(progress?.completed_stages) ? progress.completed_stages : [])
+    .map(Number)
+    .filter(stage => Number.isInteger(stage) && stage > 0);
+  const inferredStage = completedStages.length ? Math.max(...completedStages) + 1 : 1;
+  const validServerStage = Number.isInteger(serverStage) && serverStage > 0 ? serverStage : 1;
+  return Math.min(5, Math.max(validServerStage, inferredStage));
+}
+
+function normalizedIds(values = []) {
+  return new Set((Array.isArray(values) ? values : []).map(value => String(value)));
+}
+
+function isQuestionAnswered(progress, questionId) {
+  return normalizedIds(progress?.answered_questions).has(String(questionId));
+}
+
+function isStageCompleted(progress, stageId) {
+  return normalizedIds(progress?.completed_stages).has(String(stageId));
+}
+
+function nextUnansweredIndex(exercises = [], progress = state.progress, startAt = 0) {
+  if (!Array.isArray(exercises)) return -1;
+  const answeredQuestions = normalizedIds(progress?.answered_questions);
+  const nextIndex = exercises.findIndex((question, index) => (
+    index >= startAt && !answeredQuestions.has(String(question.id))
+  ));
+  if (nextIndex >= 0) return nextIndex;
+  return exercises.findIndex(question => !answeredQuestions.has(String(question.id)));
 }
 
 function applyProgressRoute(progress, preferredView = "map") {
@@ -172,7 +199,7 @@ function renderMap() {
   const unlockedCodes = progress.unlocked_codes || [];
   const chips = Array.from({ length: 5 }, (_, index) => {
     const id = index + 1;
-    const done = progress.completed_stages?.includes(id);
+    const done = isStageCompleted(progress, id);
     const active = id === currentStage;
     return `<div class="stage-chip ${done ? "done" : active ? "active" : ""}"><strong>FASE ${id}</strong><br><small>${done ? "CONCLUÍDA" : active ? "LIBERADA" : "BLOQUEADA"}</small></div>`;
   }).join("");
@@ -275,8 +302,15 @@ async function loadStage() {
       state.stageId = currentStageFromProgress(state.progress);
       sessionStorage.setItem("trig-stage", String(state.stageId));
       state.stage = await api(`/stages/${state.stageId}`);
-      state.questionIndex = Math.max(0, state.stage.exercises.findIndex(question => !state.progress.answered_questions.includes(question.id)));
-      state.view = "stage";
+      const nextQuestion = nextUnansweredIndex(state.stage.exercises, state.progress);
+      if (nextQuestion < 0) {
+        state.stage = null;
+        state.view = "map";
+        notify("Esta fase já foi concluída. Seu progresso foi atualizado.");
+      } else {
+        state.questionIndex = nextQuestion;
+        state.view = "stage";
+      }
     }
   } catch (error) { notify(error.message); state.view = "map"; }
   render();
@@ -328,16 +362,24 @@ async function answerQuestion() {
     state.progress = data.progress;
     if (state.progress?.game_over) {
       state.view = "gameOver";
-    } else if (typeof data.correct !== "boolean" && state.progress?.answered_questions?.includes(question.id)) {
-      const stageCompleted = state.progress.completed_stages?.includes(state.stageId);
-      state.modal = {
-        type: "success",
-        reaction: "happy",
-        title: "Resposta já registrada",
-        message: "Esta pergunta já havia sido respondida corretamente. Seu progresso foi sincronizado.",
-        action: state.progress.awaiting_final_code ? "CÓDIGO FINAL" : stageCompleted ? "VOLTAR AO MAPA" : "PRÓXIMA PERGUNTA",
-        next: state.progress.awaiting_final_code ? "go-final" : stageCompleted ? "next-stage" : "next-question",
-      };
+    } else if (typeof data.correct !== "boolean" && isQuestionAnswered(state.progress, question.id)) {
+      state.modal = null;
+      if (state.progress.awaiting_final_code) {
+        state.view = "finalCode";
+      } else {
+        const nextQuestion = nextUnansweredIndex(state.stage?.exercises, state.progress, state.questionIndex + 1);
+        if (nextQuestion >= 0 && !isStageCompleted(state.progress, state.stageId)) {
+          state.questionIndex = nextQuestion;
+          state.view = "instruction";
+          notify("Progresso sincronizado. Continuando na próxima questão.");
+        } else {
+          state.stageId = currentStageFromProgress(state.progress);
+          sessionStorage.setItem("trig-stage", String(state.stageId));
+          state.stage = null;
+          state.view = "map";
+          notify("Fase concluída. Progresso atualizado.");
+        }
+      }
     } else if (data.correct === false) {
       const feedback = data.feedback || data.message || "Essa alternativa não está correta. Tente novamente.";
       const attemptsText = Number.isFinite(data.remaining_errors) ? ` Restam ${data.remaining_errors} tentativas.` : "";
