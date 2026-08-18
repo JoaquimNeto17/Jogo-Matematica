@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.16-22:10";
+const FRONTEND_BUILD = "2026.08.18-ROUTES-01";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -30,7 +30,7 @@ const state = {
   playerName: sessionStorage.getItem("trig-player") || "",
   playerId: sessionStorage.getItem("trig-player-id") || "",
   selectedCharacter: Number(sessionStorage.getItem("trig-character")) || null,
-  stageId: 1,
+  stageId: Number(sessionStorage.getItem("trig-stage")) || 1,
   stage: null,
   questionIndex: 0,
   selectedOption: null,
@@ -39,6 +39,7 @@ const state = {
   hintCooldownUntil: 0,
   newHintKey: null,
   answerPending: false,
+  navigationPending: false,
   storyPage: 0,
   modal: null,
   certificate: null,
@@ -88,6 +89,42 @@ function loading() {
   app.innerHTML = `<section class="screen"><div class="loading" aria-label="Carregando"></div></section>`;
 }
 
+function currentStageFromProgress(progress = state.progress) {
+  const stage = Number(progress?.current_stage);
+  return Number.isInteger(stage) && stage > 0 ? stage : Math.max(1, Number(state.stageId) || 1);
+}
+
+function applyProgressRoute(progress, preferredView = "map") {
+  state.progress = progress;
+  state.stageId = currentStageFromProgress(progress);
+  sessionStorage.setItem("trig-stage", String(state.stageId));
+  state.modal = null;
+  if (progress?.game_over) state.view = "gameOver";
+  else if (progress?.awaiting_final_code) state.view = "finalCode";
+  else state.view = preferredView;
+}
+
+async function openMap() {
+  if (state.navigationPending) return;
+  if (!state.playerName) {
+    state.view = "start";
+    render();
+    return;
+  }
+  state.navigationPending = true;
+  loading();
+  try {
+    const progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    applyProgressRoute(progress, "map");
+  } catch (error) {
+    notify(error.message);
+    state.modal = null;
+    state.view = state.progress ? "map" : "start";
+  }
+  state.navigationPending = false;
+  render();
+}
+
 function modalHtml() {
   if (!state.modal) return "";
   if (state.modal.kind === "how-to-play") {
@@ -131,15 +168,16 @@ function renderStory() {
 
 function renderMap() {
   const progress = state.progress || { current_stage: 1, completed_stages: [] };
+  const currentStage = currentStageFromProgress(progress);
   const unlockedCodes = progress.unlocked_codes || [];
   const chips = Array.from({ length: 5 }, (_, index) => {
     const id = index + 1;
     const done = progress.completed_stages?.includes(id);
-    const active = id === progress.current_stage;
+    const active = id === currentStage;
     return `<div class="stage-chip ${done ? "done" : active ? "active" : ""}"><strong>FASE ${id}</strong><br><small>${done ? "CONCLUÍDA" : active ? "LIBERADA" : "BLOQUEADA"}</small></div>`;
   }).join("");
   const codeSlots = Array.from({ length: 5 }, (_, index) => `<span class="code-slot ${unlockedCodes[index] ? "unlocked" : "locked"}"><small>PARTE ${index + 1}</small><strong>${unlockedCodes[index] ? escapeHtml(unlockedCodes[index]) : "••••"}</strong></span>`).join("");
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${progress.current_stage}</button></div></div></section>`;
+  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${currentStage}</button></div></div></section>`;
 }
 
 function renderStage() {
@@ -195,7 +233,10 @@ async function bootstrap() {
     const [overview, characters] = await Promise.all([api(""), api("/characters")]);
     state.overview = overview;
     state.characters = characters.characters?.length ? characters.characters : BACKEND_CHARACTERS;
-    if (state.playerName) state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    if (state.playerName) {
+      const progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+      applyProgressRoute(progress, "map");
+    }
   } catch (error) {
     notify(error.message);
   }
@@ -211,10 +252,13 @@ async function registerPlayer() {
     sessionStorage.setItem("trig-player-id", state.playerId);
     sessionStorage.setItem("trig-character", state.selectedCharacter);
     state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    state.stageId = currentStageFromProgress(state.progress);
+    sessionStorage.setItem("trig-stage", String(state.stageId));
     state.hints = {};
     state.hintCooldownUntil = 0;
     state.storyPage = 0;
-    state.view = "story";
+    const hasProgress = state.stageId > 1 || state.progress.completed_stages?.length > 0 || state.progress.answered_questions?.length > 0;
+    state.view = hasProgress ? "map" : "story";
   } catch (error) { notify(error.message); state.view = "characters"; }
   render();
 }
@@ -223,12 +267,17 @@ async function loadStage() {
   loading();
   try {
     state.progress = await api(`/progress/${encodeURIComponent(state.playerName)}`);
-    if (state.progress.game_over) { state.view = "gameOver"; render(); return; }
-    if (state.progress.awaiting_final_code) { state.view = "finalCode"; render(); return; }
-    state.stageId = state.progress.current_stage;
-    state.stage = await api(`/stages/${state.stageId}`);
-    state.questionIndex = Math.max(0, state.stage.exercises.findIndex(question => !state.progress.answered_questions.includes(question.id)));
-    state.view = "stage";
+    if (state.progress.game_over) {
+      state.view = "gameOver";
+    } else if (state.progress.awaiting_final_code) {
+      state.view = "finalCode";
+    } else {
+      state.stageId = currentStageFromProgress(state.progress);
+      sessionStorage.setItem("trig-stage", String(state.stageId));
+      state.stage = await api(`/stages/${state.stageId}`);
+      state.questionIndex = Math.max(0, state.stage.exercises.findIndex(question => !state.progress.answered_questions.includes(question.id)));
+      state.view = "stage";
+    }
   } catch (error) { notify(error.message); state.view = "map"; }
   render();
 }
@@ -327,6 +376,7 @@ async function restart() {
     state.hints = {};
     state.hintCooldownUntil = 0;
     state.stageId = 1;
+    sessionStorage.setItem("trig-stage", "1");
     state.view = "map";
   } catch (error) { notify(error.message); state.view = "start"; }
   render();
@@ -365,7 +415,7 @@ app.addEventListener("click", async event => {
   if (action === "register") await registerPlayer();
   if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
   if (action === "story-back") { state.storyPage = Math.max(0, state.storyPage - 1); render(); }
-  if (action === "open-map") { state.modal = null; state.view = "map"; render(); }
+  if (action === "open-map") await openMap();
   if (action === "load-stage") await loadStage();
   if (action === "begin-questions") { state.view = "instruction"; render(); }
   if (action === "start-question") { state.view = "question"; render(); }
@@ -373,7 +423,7 @@ app.addEventListener("click", async event => {
   if (action === "answer") await answerQuestion();
   if (action === "close-modal") { state.modal = null; render(); }
   if (action === "next-question") { state.modal = null; state.questionIndex += 1; state.hintCooldownUntil = 0; state.view = "instruction"; render(); }
-  if (action === "next-stage") { state.modal = null; state.view = "map"; render(); }
+  if (action === "next-stage") await openMap();
   if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
   if (action === "restart") await restart();
   if (action === "certificate") await loadCertificate();
