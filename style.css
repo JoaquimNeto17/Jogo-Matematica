@@ -191,21 +191,29 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .lead { color: #d6e8ff; line-height: 1.65; white-space: pre-line; }
 .screen-kicker { margin: 0 0 8px; color: var(--cyan); font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
 
-.story-panel { position: relative; min-height: min(570px, 76vh); display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, .42fr); align-items: center; overflow: hidden; }
-.story-copy { position: relative; z-index: 2; max-width: 700px; animation: story-copy-in .6s cubic-bezier(.2,.8,.25,1) both; }
-.story-panel .panel-title { text-align: left; }
-.story-text { min-height: 110px; font-size: clamp(16px, 2vw, 21px); line-height: 1.62; }
-.story-panel .game-actions { justify-content: flex-start; }
-.story-character { position: relative; z-index: 2; width: 100%; max-height: 52vh; object-fit: contain; align-self: end; filter: drop-shadow(0 14px 18px rgba(0,0,0,.45)); animation: character-arrive .75s .1s cubic-bezier(.18,.8,.3,1.15) both; }
-.story-progress { display: flex; gap: 8px; margin-top: 18px; }
+.cinematic-story { padding: clamp(10px, 2vw, 24px); }
+.story-cinematic-frame { position: relative; width: min(1180px, 96vw); height: min(720px, 94dvh); aspect-ratio: 16 / 9; overflow: hidden; border: 2px solid var(--cyan); border-radius: 20px; background: #020828; box-shadow: 0 0 0 7px rgba(7,16,68,.9), 0 0 38px rgba(0,217,255,.4); isolation: isolate; }
+.story-scene-image { position: absolute; inset: -3%; z-index: -3; width: 106%; height: 106%; object-fit: cover; animation: cinematic-camera-a 15s ease-in-out both; }
+.scene-2 .story-scene-image { animation-name: cinematic-camera-b; }
+.story-scene-shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(1,5,30,.88) 0%, rgba(2,7,39,.25) 43%, rgba(1,4,29,.46) 100%), linear-gradient(0deg, rgba(1,4,27,.95) 0%, transparent 53%); }
+.story-scanlines { position: absolute; inset: 0; z-index: -1; opacity: .12; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(106,222,255,.28) 4px); animation: scanline-shift 9s linear infinite; }
+.story-cinematic-header { position: absolute; top: clamp(12px, 2.5vh, 24px); left: clamp(16px, 3vw, 34px); right: clamp(16px, 3vw, 34px); z-index: 4; display: flex; justify-content: space-between; align-items: center; gap: 16px; color: #c9f8ff; font-family: var(--font-display); font-size: clamp(11px, 1.5vw, 14px); letter-spacing: .14em; text-shadow: 0 0 12px var(--cyan); }
+.story-skip-button { min-height: 38px; padding: 8px 14px; border: 1px solid rgba(108,222,255,.75); border-radius: 9px; color: white; background: rgba(2,10,47,.72); font-family: var(--font-display); cursor: pointer; transition: .2s ease; }
+.story-skip-button:hover, .story-skip-button:focus-visible { border-color: #fff; background: rgba(17,40,105,.9); transform: translateY(-2px); }
+.story-back-button { position: absolute; top: 50%; left: 18px; z-index: 5; width: 48px; height: 48px; display: grid; place-items: center; border: 2px solid var(--cyan); border-radius: 50%; color: white; background: rgba(4,12,58,.88); box-shadow: 0 0 18px rgba(0,217,255,.5); font-size: 27px; cursor: pointer; transform: translateY(-50%); }
+.story-character { position: absolute; left: clamp(8px, 2.4vw, 32px); bottom: 0; z-index: 2; width: clamp(120px, 19vw, 235px); height: min(47vh, 440px); object-fit: contain; object-position: center bottom; filter: drop-shadow(0 18px 20px rgba(0,0,0,.72)); animation: character-arrive .75s .15s cubic-bezier(.18,.8,.3,1.15) both; }
+.story-dialogue-wrap { position: absolute; left: clamp(145px, 21vw, 260px); right: clamp(18px, 3.2vw, 42px); bottom: clamp(16px, 3vh, 34px); z-index: 3; animation: dialogue-rise .58s .12s cubic-bezier(.2,.8,.25,1) both; }
+.story-dialogue-wrap > .screen-kicker { margin: 0 0 5px; }
+.story-dialogue-wrap > h1 { margin: 0 0 9px; font-size: clamp(21px, 3.1vw, 40px); line-height: 1; text-transform: uppercase; text-shadow: 0 0 18px rgba(0,217,255,.75); }
+.story-dialogue { position: relative; padding: clamp(12px, 1.8vw, 20px) clamp(14px, 2.2vw, 24px); border: 2px solid rgba(83,223,255,.9); border-radius: 15px; background: linear-gradient(135deg, rgba(4,13,62,.94), rgba(14,17,77,.9)); box-shadow: inset 0 0 30px rgba(21,78,255,.18), 0 0 24px rgba(0,217,255,.25); }
+.story-dialogue::before { content: ""; position: absolute; left: -18px; bottom: 28px; width: 30px; height: 30px; border-left: 2px solid var(--cyan); border-bottom: 2px solid var(--cyan); background: #07113e; transform: rotate(45deg); }
+.story-dialogue strong { position: relative; display: block; margin-bottom: 5px; color: #66edff; font-family: var(--font-display); font-size: clamp(13px, 1.6vw, 17px); letter-spacing: .08em; text-transform: uppercase; }
+.story-dialogue p { position: relative; max-height: min(29vh, 230px); margin: 0; overflow: hidden; color: #eff9ff; font-size: clamp(11px, 1.25vw, 14px); line-height: 1.34; white-space: pre-line; }
+.story-cinematic-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
+.story-cinematic-footer .story-continue-button { min-width: min(250px, 44vw); margin: 0; padding: 11px 20px; font-size: clamp(16px, 2vw, 22px); }
+.story-progress { display: flex; gap: 8px; margin: 0; }
 .story-progress span { width: 42px; height: 6px; border-radius: 99px; background: #293477; transition: .25s ease; }
 .story-progress span.active { width: 72px; background: var(--cyan); box-shadow: 0 0 13px rgba(0,217,255,.75); }
-.story-orbit { position: absolute; inset: 0; pointer-events: none; opacity: .25; }
-.story-orbit span { position: absolute; color: var(--cyan); font-family: var(--font-display); font-size: clamp(23px, 4vw, 46px); text-shadow: 0 0 16px var(--cyan); animation: float-symbol 4s ease-in-out infinite; }
-.story-orbit span:nth-child(1) { top: 10%; left: 8%; }
-.story-orbit span:nth-child(2) { right: 8%; top: 12%; animation-delay: -.8s; }
-.story-orbit span:nth-child(3) { left: 44%; bottom: 8%; animation-delay: -1.7s; }
-.story-orbit span:nth-child(4) { right: 3%; bottom: 26%; animation-delay: -2.5s; }
 
 .instruction-panel { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(230px, .55fr); gap: clamp(22px, 4vw, 54px); align-items: center; overflow: hidden; }
 .instruction-copy { animation: story-copy-in .55s ease-out both; }
@@ -229,6 +237,10 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 
 @keyframes story-copy-in { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes character-arrive { from { opacity: 0; transform: translateY(30px) scale(.88); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes dialogue-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cinematic-camera-a { from { transform: scale(1.01) translate3d(-.6%, 0, 0); } to { transform: scale(1.08) translate3d(1.2%, -.6%, 0); } }
+@keyframes cinematic-camera-b { from { transform: scale(1.08) translate3d(1%, -.5%, 0); } to { transform: scale(1.02) translate3d(-.5%, .4%, 0); } }
+@keyframes scanline-shift { to { background-position-y: 120px; } }
 @keyframes step-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes math-card-in { from { opacity: 0; transform: translateY(-18px) rotate(8deg) scale(.9); } to { opacity: 1; transform: translateY(0) rotate(3deg) scale(1); } }
 @keyframes float-symbol { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
@@ -499,6 +511,25 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .how-to-steps { grid-template-columns: 1fr; gap: 8px; }
   .how-to-steps article { padding: 10px; }
   .how-to-confirm { margin-top: 14px; }
+  .cinematic-story { min-height: 100dvh; padding: 8px; }
+  .story-cinematic-frame { width: 96vw; height: 92dvh; min-height: 620px; aspect-ratio: auto; }
+  .story-scene-image { inset: 0; width: 100%; height: 100%; object-position: center; }
+  .story-scene-shade { background: linear-gradient(0deg, rgba(1,4,27,.98) 0%, rgba(1,5,30,.7) 48%, rgba(1,5,30,.2) 100%); }
+  .story-cinematic-header { top: 12px; left: 14px; right: 14px; }
+  .story-cinematic-header > span { max-width: 48%; font-size: 10px; }
+  .story-skip-button { min-height: 34px; padding: 6px 9px; font-size: 10px; }
+  .story-character { top: 13%; left: 5px; bottom: auto; width: 112px; height: 31%; }
+  .story-dialogue-wrap { left: 12px; right: 12px; bottom: 12px; }
+  .story-dialogue-wrap > .screen-kicker { padding-left: 116px; text-align: left; }
+  .story-dialogue-wrap > h1 { min-height: 70px; padding-left: 116px; display: flex; align-items: flex-end; font-size: clamp(19px, 6vw, 28px); }
+  .story-dialogue { padding: 11px 13px; }
+  .story-dialogue::before { display: none; }
+  .story-dialogue p { max-height: 33dvh; overflow-y: auto; font-size: 12px; line-height: 1.35; scrollbar-width: thin; }
+  .story-cinematic-footer { margin-top: 8px; }
+  .story-cinematic-footer .story-continue-button { min-width: 190px; padding: 10px 12px; font-size: 16px; }
+  .story-progress span { width: 25px; }
+  .story-progress span.active { width: 42px; }
+  .story-back-button { top: 32%; left: 10px; width: 42px; height: 42px; }
 }
 
 /* Desktop: toda a interface cabe na altura da janela, sem scroll. */
@@ -582,7 +613,11 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .final-actions .primary-button,
   .final-actions .secondary-button { width: 100%; min-height: 62px; }
   .story-panel { display: block; }
-  .story-character { width: 150px; max-height: 180px; display: block; margin: 12px auto -10px; }
+  .story-character { width: 102px; max-height: none; margin: 0; }
+  .story-dialogue-wrap > .screen-kicker,
+  .story-dialogue-wrap > h1 { padding-left: 105px; }
+  .story-cinematic-footer { align-items: flex-end; }
+  .story-cinematic-footer .story-continue-button { min-width: 170px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

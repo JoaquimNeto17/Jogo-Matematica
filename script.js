@@ -1,5 +1,9 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
+<<<<<<< HEAD
+const FRONTEND_BUILD = "2026.08.19-ROUTES-03-STORY-01";
+=======
 const FRONTEND_BUILD = "2026.08.18-ROUTES-03";
+>>>>>>> 296cd674e2f205b2ac23260bde1771f355a8735a
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -22,6 +26,19 @@ const REACTION_IMAGES = {
   4: { happy: "assets/reactions/bolt_feliz.webp?v=2", sad: "assets/reactions/bolt_triste.webp?v=2" },
   5: { happy: "assets/reactions/iris_feliz.webp?v=2", sad: "assets/reactions/iris_triste.webp?v=2" },
 };
+
+const STORY_SCENES = [
+  {
+    image: "assets/story/centro-alerta.webp?v=1",
+    status: "ALERTA DO SISTEMA",
+    title: "Uma falha atingiu o centro",
+  },
+  {
+    image: "assets/story/centro-bloqueado.webp?v=1",
+    status: "MISSÃO RECEBIDA",
+    title: "As cinco fases foram bloqueadas",
+  },
+];
 
 const state = {
   view: "start",
@@ -204,7 +221,9 @@ function renderStory() {
   const page = Math.min(state.storyPage, pages.length - 1);
   const isLast = page === pages.length - 1;
   const character = state.characters.find(item => item.id === state.selectedCharacter);
-  return `<section class="screen story-screen">${page > 0 ? `<button class="corner-nav-button" data-action="story-back" aria-label="Voltar para a parte anterior" title="Voltar">←</button>` : ""}<article class="panel story-panel"><div class="story-orbit" aria-hidden="true"><span>sen</span><span>cos</span><span>π</span><span>√</span></div><div class="story-copy"><p class="screen-kicker">TRANSMISSÃO ${page + 1} DE ${pages.length}</p><h1 class="panel-title">${page === 0 ? "O sistema precisa de você" : "Sua missão começa agora"}</h1><p class="lead story-text">${escapeHtml(pages[page])}</p><div class="story-progress" aria-label="Parte ${page + 1} de ${pages.length}">${pages.map((_, index) => `<span class="${index === page ? "active" : ""}"></span>`).join("")}</div><div class="game-actions"><button class="primary-button compact-button" data-action="${isLast ? "open-map" : "story-next"}">${isLast ? "ENTRAR NO DESAFIO" : "CONTINUAR →"}</button></div></div>${character ? `<img class="story-character" src="${escapeHtml(character.image_url)}" alt="${escapeHtml(character.name)}">` : ""}</article></section>`;
+  const scene = STORY_SCENES[page] || STORY_SCENES[STORY_SCENES.length - 1];
+  const speaker = character?.name || "Central Trigonométrica";
+  return `<section class="screen story-screen cinematic-story"><article class="story-cinematic-frame scene-${page + 1}"><img class="story-scene-image" src="${scene.image}" alt="Centro de Treinamento Trigonométrico"><div class="story-scene-shade" aria-hidden="true"></div><div class="story-scanlines" aria-hidden="true"></div><header class="story-cinematic-header"><span>TRANSMISSÃO ${page + 1} DE ${pages.length}</span><button class="story-skip-button" data-action="open-map">PULAR HISTÓRIA</button></header>${page > 0 ? `<button class="story-back-button" data-action="story-back" aria-label="Voltar para a cena anterior" title="Voltar">←</button>` : ""}${character ? `<img class="story-character" src="${escapeHtml(character.image_url)}" alt="${escapeHtml(character.name)}">` : ""}<div class="story-dialogue-wrap"><p class="screen-kicker">${scene.status}</p><h1>${scene.title}</h1><div class="story-dialogue"><strong>${escapeHtml(speaker)}</strong><p>${escapeHtml(pages[page])}</p></div><footer class="story-cinematic-footer"><div class="story-progress" aria-label="Cena ${page + 1} de ${pages.length}">${pages.map((_, index) => `<span class="${index === page ? "active" : ""}"></span>`).join("")}</div><button class="primary-button compact-button story-continue-button" data-action="${isLast ? "open-map" : "story-next"}">${isLast ? "ACEITAR MISSÃO" : "CONTINUAR →"}</button></footer></div></article></section>`;
 }
 
 function renderMap() {
