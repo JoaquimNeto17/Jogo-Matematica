@@ -1,9 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-<<<<<<< HEAD
-const FRONTEND_BUILD = "2026.08.19-ROUTES-03-STORY-01";
-=======
-const FRONTEND_BUILD = "2026.08.18-ROUTES-03";
->>>>>>> 296cd674e2f205b2ac23260bde1771f355a8735a
+const FRONTEND_BUILD = "2026.08.19-ROUTES-03-STORY-02";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
