@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.20-ROUTES-03-STORY-04-ANGLE-TRAINING";
-=======
-// Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.19-ROUTES-03-STORY-02";
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
+const FRONTEND_BUILD = "2026.08.20-ROUTES-03-STORY-05-CLEAN";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -40,7 +35,6 @@ const STORY_SCENES = [
     title: "As cinco fases foram bloqueadas",
   },
 ];
-<<<<<<< HEAD
 
 const ANGLE_TRAINING_QUESTIONS = [
   { prompt: "sen 30°", answer: "1/2", options: ["1/2", "√2/2", "√3/2"] },
@@ -61,16 +55,6 @@ const state = {
   playerName: sessionStorage.getItem("trig-player") || "",
   playerId: sessionStorage.getItem("trig-player-id") || "",
   selectedCharacter: Number(sessionStorage.getItem("trig-character")) || null,
-=======
-
-const state = {
-  view: "start",
-  overview: null,
-  characters: BACKEND_CHARACTERS,
-  playerName: sessionStorage.getItem("trig-player") || "",
-  playerId: sessionStorage.getItem("trig-player-id") || "",
-  selectedCharacter: Number(sessionStorage.getItem("trig-character")) || null,
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
   stageId: Number(sessionStorage.getItem("trig-stage")) || 1,
   stage: null,
   questionIndex: 0,
@@ -81,7 +65,6 @@ const state = {
   newHintKey: null,
   answerPending: false,
   navigationPending: false,
-<<<<<<< HEAD
   storyPage: 0,
   modal: null,
   certificate: null,
@@ -188,53 +171,6 @@ function notify(message) {
   notify.timer = setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
-=======
-  storyPage: 0,
-  modal: null,
-  certificate: null,
-};
-
-const app = document.querySelector("#app");
-const toast = document.querySelector("#toast");
-let renderedView = null;
-let lastAction = { name: "", time: 0 };
-
-async function api(path, options = {}) {
-  const response = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.errors?.join(" ") || "Não foi possível acessar o servidor.");
-  return data;
-}
-
-function escapeHtml(value = "") {
-  return String(value).replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-}
-
-function storyPages() {
-  const fallback = "Uma falha atingiu o Centro de Treinamento Trigonométrico. Os códigos que mantêm o sistema ativo foram espalhados pelas cinco fases.\n\nSua missão é resolver os desafios, recuperar cada parte do código e restaurar o sistema.";
-  const text = String(state.overview?.introduction || fallback).trim();
-  const paragraphs = text.split(/\n\s*\n/).map(item => item.trim()).filter(Boolean);
-  if (paragraphs.length >= 2) {
-    const middle = Math.ceil(paragraphs.length / 2);
-    return [paragraphs.slice(0, middle).join("\n\n"), paragraphs.slice(middle).join("\n\n")];
-  }
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(item => item.trim()).filter(Boolean) || [text];
-  if (sentences.length < 2) return [sentences[0], "Prepare-se para superar as cinco fases e recuperar o código final."];
-  const middle = Math.ceil(sentences.length / 2);
-  return [sentences.slice(0, middle).join(" "), sentences.slice(middle).join(" ")];
-}
-
-function notify(message) {
-  toast.textContent = message;
-  toast.classList.add("show");
-  clearTimeout(notify.timer);
-  notify.timer = setTimeout(() => toast.classList.remove("show"), 3200);
-}
-
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
 function loading() {
   app.innerHTML = `<section class="screen"><div class="loading" aria-label="Carregando"></div></section>`;
 }
@@ -315,7 +251,6 @@ async function openMap() {
   state.navigationPending = false;
   render();
 }
-<<<<<<< HEAD
 
 function modalHtml() {
   if (!state.modal) return "";
@@ -362,42 +297,6 @@ function renderCharacters() {
   return `<section class="screen"><div class="panel"><h1 class="panel-title">Escolha seu personagem</h1><div class="characters">${cards}</div><div class="game-actions"><button class="primary-button" data-action="register" ${state.selectedCharacter ? "" : "disabled"}>AVANÇAR</button></div></div></section>`;
 }
 
-=======
-
-function modalHtml() {
-  if (!state.modal) return "";
-  if (state.modal.kind === "how-to-play") {
-    return `<div class="modal-backdrop how-to-backdrop" data-modal-backdrop><section class="modal how-to-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-title"><button class="modal-close-button" data-action="close-modal" aria-label="Fechar instruções" title="Fechar">×</button><header class="how-to-header"><span class="how-to-symbol" aria-hidden="true">?</span><div><p>GUIA RÁPIDO</p><h2 id="how-to-title">Como jogar</h2></div></header><p class="how-to-intro">Complete as cinco fases, recupere as palavras escondidas e monte o código final do Desafio Trigonométrico.</p><div class="how-to-steps"><article><span>1</span><div><strong>IDENTIFIQUE-SE</strong><p>Digite seu nome e escolha o personagem que acompanhará você.</p></div></article><article><span>2</span><div><strong>LEIA AS INSTRUÇÕES</strong><p>Cada exercício possui uma explicação antes da pergunta.</p></div></article><article><span>3</span><div><strong>RESPONDA</strong><p>Selecione uma alternativa e clique em “Responder” para confirmar.</p></div></article><article><span>4</span><div><strong>USE AS DICAS</strong><p>O botão “?” mostra até duas dicas. Aguarde três segundos entre elas.</p></div></article><article><span>5</span><div><strong>CUIDE DAS VIDAS</strong><p>Você possui três vidas. Cada resposta incorreta consome uma tentativa.</p></div></article><article><span>6</span><div><strong>MONTE O CÓDIGO</strong><p>Cada fase libera uma palavra. No final, una todas na ordem correta.</p></div></article></div><button class="primary-button compact-button how-to-confirm" data-action="close-modal">ENTENDI, VAMOS JOGAR</button></section></div>`;
-  }
-  const { type = "", title, message, code, reaction, action = "Fechar", next = "close-modal" } = state.modal;
-  const reactionImage = reaction ? REACTION_IMAGES[state.selectedCharacter]?.[reaction] : "";
-  return `<div class="modal-backdrop"><section class="modal ${type} ${reactionImage ? "has-reaction" : "simple-modal"}">${reactionImage ? `<img class="reaction-character reaction-${reaction}" src="${reactionImage}" alt="Reação de ${escapeHtml(state.characters.find(item => item.id === state.selectedCharacter)?.name || "personagem")}">` : ""}<div class="reaction-content"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}<button class="primary-button compact-button" data-action="${next}">${escapeHtml(action)}</button></div></section></div>`;
-}
-
-function render() {
-  const views = { start: renderStart, name: renderName, characters: renderCharacters, story: renderStory, map: renderMap, stage: renderStage, instruction: renderInstruction, question: renderQuestion, finalCode: renderFinalCode, completed: renderCompleted, certificate: renderCertificate, gameOver: renderGameOver };
-  const viewChanged = renderedView !== state.view;
-  app.innerHTML = (views[state.view] || renderStart)() + modalHtml();
-  if (!viewChanged) app.querySelector(".screen")?.classList.add("no-screen-animation");
-  renderedView = state.view;
-  state.newHintKey = null;
-  if (state.modal?.kind === "how-to-play") requestAnimationFrame(() => app.querySelector(".modal-close-button")?.focus());
-}
-
-function renderStart() {
-  return `<section class="screen hero"><div class="top-actions"><button class="icon-button how-to-button" data-action="how-to-play"><span aria-hidden="true">?</span> COMO JOGAR</button><button class="icon-button" data-action="credits">CRÉDITOS</button></div><div class="hero-logo"><div class="hero-mark">π</div><h1>DESAFIO<span>TRIGONOMÉTRICO</span></h1><p>SENO · COSSENO · TANGENTE</p></div><button class="primary-button" data-action="start">▶ INICIAR</button></section>`;
-}
-
-function renderName() {
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Digite seu nome</h1><form class="name-form" id="name-form"><label for="player-name">Nome do jogador</label><input id="player-name" name="playerName" maxlength="40" autocomplete="name" value="${escapeHtml(state.playerName)}" placeholder="Como devemos chamar você?" required><button class="primary-button" type="submit">AVANÇAR</button></form></div></section>`;
-}
-
-function renderCharacters() {
-  const cards = state.characters.map(character => `<button class="character-card ${state.selectedCharacter === character.id ? "selected" : ""}" data-character="${character.id}"><img src="${escapeHtml(character.image_url)}" alt="${escapeHtml(character.name)}"><span><strong>${escapeHtml(character.name)}</strong><small>${escapeHtml(character.role)}</small></span></button>`).join("");
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Escolha seu personagem</h1><div class="characters">${cards}</div><div class="game-actions"><button class="primary-button" data-action="register" ${state.selectedCharacter ? "" : "disabled"}>AVANÇAR</button></div></div></section>`;
-}
-
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
 function renderStory() {
   const pages = storyPages();
   const page = Math.min(state.storyPage, pages.length - 1);
@@ -420,7 +319,6 @@ function renderMap() {
   }).join("");
   const codeSlots = Array.from({ length: 5 }, (_, index) => `<span class="code-slot ${unlockedCodes[index] ? "unlocked" : "locked"}"><small>PARTE ${index + 1}</small><strong>${unlockedCodes[index] ? escapeHtml(unlockedCodes[index]) : "••••"}</strong></span>`).join("");
   return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${currentStage}</button></div></div></section>`;
-<<<<<<< HEAD
 }
 
 function renderStage() {
@@ -471,58 +369,6 @@ function renderGameOver() {
   return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Tentativas encerradas</h1><p class="lead">Você atingiu o limite de três erros. Reinicie o progresso para tentar novamente.</p><button class="primary-button" data-action="restart">REINICIAR</button></div></section>`;
 }
 
-=======
-}
-
-function renderStage() {
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Fase ${state.stageId}</h1><h2 style="text-align:center">${escapeHtml(state.stage?.title)}</h2><p class="lead" style="text-align:center">${escapeHtml(state.stage?.intro)}</p><div class="game-actions"><button class="primary-button" data-action="begin-questions">COMEÇAR</button></div></div></section>`;
-}
-
-function renderInstruction() {
-  const question = state.stage?.exercises?.[state.questionIndex];
-  if (!question) return renderStage();
-  const instruction = question.instruction || "Leia com atenção os dados da questão, identifique a relação trigonométrica adequada e compare seu resultado com as alternativas.";
-  const character = state.characters.find(item => item.id === state.selectedCharacter);
-  return `<section class="screen instruction-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="question-counter">QUESTÃO ${state.questionIndex + 1} DE ${state.stage.exercises.length}</div></header><article class="panel instruction-panel"><div class="instruction-copy"><p class="screen-kicker">BRIEFING DO EXERCÍCIO</p><h1 class="panel-title">Como resolver</h1><p class="instruction-text">${escapeHtml(instruction)}</p><div class="instruction-steps"><div><span>1</span><strong>LEIA</strong><small>Encontre os dados importantes.</small></div><div><span>2</span><strong>RELACIONE</strong><small>Escolha a função trigonométrica.</small></div><div><span>3</span><strong>RESOLVA</strong><small>Calcule e marque a alternativa.</small></div></div><div class="game-actions centered-main-action"><button class="primary-button compact-button" data-action="start-question">IR PARA A QUESTÃO →</button></div></div><div class="instruction-visual" aria-hidden="true"><div class="math-card"><span class="math-angle">30°</span><div class="triangle"><i></i></div><strong>sen · cos · tg</strong></div>${character ? `<img src="${escapeHtml(character.image_url)}" alt="">` : ""}</div></article></section>`;
-}
-
-function renderQuestion() {
-  const question = state.stage?.exercises?.[state.questionIndex];
-  if (!question) return renderStage();
-  const progress = state.progress || { score: 0, wrong_answers: 0 };
-  const questionHints = state.hints[question.id] || [];
-  const hintCoolingDown = Date.now() < state.hintCooldownUntil;
-  const answers = question.options.map(option => `<button class="answer ${state.selectedOption === option.id ? "selected" : ""}" data-option="${option.id}">${escapeHtml(option.id)}) ${escapeHtml(option.text).replace("raiz de 3", "√3")}</button>`).join("");
-  const character = state.characters.find(item => item.id === state.selectedCharacter);
-  const hintsHtml = questionHints.length ? `<div class="hints-list">${questionHints.map((hint, index) => {
-    const isNew = state.newHintKey === `${question.id}:${index}`;
-    return `<div class="hint-box ${isNew ? "new-hint" : ""}"><strong>DICA ${index + 1}:</strong> ${escapeHtml(hint)}</div>`;
-  }).join("")}</div>` : "";
-  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="help-button" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
-}
-
-function renderFinalCode() {
-  const codes = state.progress?.unlocked_codes?.join(" · ") || "";
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Digite o código final</h1><p class="lead" style="text-align:center">Códigos recuperados: <strong class="code">${escapeHtml(codes)}</strong></p><form id="code-form" class="name-form"><input class="code-input" name="code" placeholder="Digite a frase completa" required><button class="primary-button" type="submit">VALIDAR CÓDIGO</button></form></div></section>`;
-}
-
-function renderCompleted() {
-  const classification = state.progress?.classification?.title || state.progress?.classification || "Mestre das Funções Trigonométricas";
-  return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Parabéns!</h1><p class="code">${escapeHtml(state.playerName)}</p><p>Você concluiu o Desafio Trigonométrico.</p><p>Pontuação final: <strong>${state.progress?.score || 0} pontos</strong></p><p>Classificação: <strong>${escapeHtml(classification)}</strong></p><div class="game-actions final-actions"><button class="primary-button" data-action="certificate">CERTIFICADO</button><button class="secondary-button" data-action="restart">JOGAR NOVAMENTE</button></div></div></section>`;
-}
-
-function renderCertificate() {
-  const certificate = state.certificate;
-  if (!certificate) return renderCompleted();
-  const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
-  return `<section class="screen certificate-screen"><article class="certificate" id="certificate-document"><div class="certificate-corners" aria-hidden="true"></div><div class="certificate-symbol">π</div><p class="certificate-eyebrow">CERTIFICADO DE CONCLUSÃO</p><h1>Desafio Trigonométrico</h1><p class="certificate-text">Certificamos que</p><h2>${escapeHtml(certificate.player_name)}</h2><p class="certificate-text">concluiu todas as etapas do Desafio Trigonométrico, demonstrando conhecimentos sobre seno, cosseno, tangente e funções trigonométricas.</p><div class="certificate-results"><span><small>PONTUAÇÃO</small><strong>${escapeHtml(certificate.score)} pontos</strong></span><span><small>CLASSIFICAÇÃO</small><strong>${escapeHtml(certificate.title)}</strong></span></div><p class="certificate-date">Emitido em ${escapeHtml(date)}</p><div class="certificate-signature"><span></span><strong>Desafio Trigonométrico</strong><small>Projeto educacional</small></div></article><div class="certificate-actions"><button class="secondary-button" data-action="back-completed">← VOLTAR</button><button class="primary-button" data-action="print-certificate">IMPRIMIR OU SALVAR EM PDF</button></div></section>`;
-}
-
-function renderGameOver() {
-  return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Tentativas encerradas</h1><p class="lead">Você atingiu o limite de três erros. Reinicie o progresso para tentar novamente.</p><button class="primary-button" data-action="restart">REINICIAR</button></div></section>`;
-}
-
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
 async function bootstrap() {
   try {
     const [overview, characters] = await Promise.all([api(""), api("/characters")]);
@@ -685,7 +531,6 @@ async function restart() {
     state.hintCooldownUntil = 0;
     state.stageId = 1;
     sessionStorage.setItem("trig-stage", "1");
-<<<<<<< HEAD
     state.view = "map";
   } catch (error) { notify(error.message); state.view = "start"; }
   render();
@@ -766,79 +611,3 @@ app.addEventListener("submit", event => {
 });
 
 bootstrap();
-=======
-    state.view = "map";
-  } catch (error) { notify(error.message); state.view = "start"; }
-  render();
-}
-
-async function loadCertificate() {
-  loading();
-  try {
-    const path = state.playerId
-      ? `/players/${encodeURIComponent(state.playerId)}/certificate`
-      : `/certificate/${encodeURIComponent(state.playerName)}`;
-    const data = await api(path);
-    state.certificate = data.certificate;
-    state.view = "certificate";
-  } catch (error) {
-    state.view = "completed";
-    notify(error.message);
-  }
-  render();
-}
-
-app.addEventListener("click", async event => {
-  if (event.target.matches("[data-modal-backdrop]")) { state.modal = null; render(); return; }
-  const character = event.target.closest("[data-character]");
-  if (character) { state.selectedCharacter = Number(character.dataset.character); render(); return; }
-  const option = event.target.closest("[data-option]");
-  if (option) { state.selectedOption = option.dataset.option; render(); return; }
-  const action = event.target.closest("[data-action]")?.dataset.action;
-  if (!action) return;
-  const now = performance.now();
-  if (lastAction.name === action && now - lastAction.time < 500) return;
-  lastAction = { name: action, time: now };
-  if (action === "start") { state.view = "name"; render(); }
-  if (action === "how-to-play") { state.modal = { kind: "how-to-play" }; render(); }
-  if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
-  if (action === "register") await registerPlayer();
-  if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
-  if (action === "story-back") { state.storyPage = Math.max(0, state.storyPage - 1); render(); }
-  if (action === "open-map") await openMap();
-  if (action === "load-stage") await loadStage();
-  if (action === "begin-questions") { state.view = "instruction"; render(); }
-  if (action === "start-question") { state.view = "question"; render(); }
-  if (action === "hint") await useHint();
-  if (action === "answer") await answerQuestion();
-  if (action === "close-modal") { state.modal = null; render(); }
-  if (action === "next-question") await continueAfterAnswer();
-  if (action === "next-stage") await openMap();
-  if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
-  if (action === "restart") await restart();
-  if (action === "certificate") await loadCertificate();
-  if (action === "print-certificate") window.print();
-  if (action === "back-completed") { state.view = "completed"; render(); }
-});
-
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && state.modal) {
-    state.modal = null;
-    render();
-  }
-});
-
-app.addEventListener("submit", event => {
-  event.preventDefault();
-  const form = new FormData(event.target);
-  if (event.target.id === "name-form") {
-    state.playerName = String(form.get("playerName") || "").trim();
-    if (state.playerName.length < 2) return notify("Digite um nome com pelo menos dois caracteres.");
-    state.view = "characters";
-    render();
-  }
-  if (event.target.id === "code-form") validateCode(String(form.get("code") || ""));
-});
-
-bootstrap();
->>>>>>> 1967520d80b7749fd6e1b3294ed011a9326ded20
