@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.24-ROUTES-03-STORY-06-FLOW";
+const FRONTEND_BUILD = "2026.08.24-ROUTES-04-STAGE-CYCLE";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -62,6 +62,10 @@ const state = {
   questionIndex: 0,
   selectedOption: null,
   progress: null,
+  confirmedCompletedStages: (() => {
+    try { return JSON.parse(sessionStorage.getItem("trig-confirmed-stages") || "[]"); }
+    catch { return []; }
+  })(),
   hints: {},
   hintCooldownUntil: 0,
   newHintKey: null,
@@ -193,7 +197,15 @@ function loading() {
 
 function currentStageFromProgress(progress = state.progress) {
   const serverStage = Number(progress?.current_stage);
-  if (Number.isInteger(serverStage) && serverStage >= 1 && serverStage <= 5) return serverStage;
+  const completedStages = normalizedIds([
+    ...(Array.isArray(progress?.completed_stages) ? progress.completed_stages : []),
+    ...(Array.isArray(state.confirmedCompletedStages) ? state.confirmedCompletedStages : []),
+  ]);
+  if (Number.isInteger(serverStage) && serverStage >= 1 && serverStage <= 5 && !completedStages.has(String(serverStage))) {
+    return serverStage;
+  }
+  const firstIncompleteStage = [1, 2, 3, 4, 5].find(stageId => !completedStages.has(String(stageId)));
+  if (firstIncompleteStage) return firstIncompleteStage;
   return Math.min(5, Math.max(1, Number(state.stageId) || 1));
 }
 
@@ -206,7 +218,22 @@ function isQuestionAnswered(progress, questionId) {
 }
 
 function isStageCompleted(progress, stageId) {
-  return normalizedIds(progress?.completed_stages).has(String(stageId));
+  return normalizedIds([
+    ...(Array.isArray(progress?.completed_stages) ? progress.completed_stages : []),
+    ...(Array.isArray(state.confirmedCompletedStages) ? state.confirmedCompletedStages : []),
+  ]).has(String(stageId));
+}
+
+function confirmStageCompletion(stageId) {
+  const confirmed = normalizedIds(state.confirmedCompletedStages);
+  confirmed.add(String(stageId));
+  state.confirmedCompletedStages = [...confirmed].map(Number).filter(Number.isFinite);
+  sessionStorage.setItem("trig-confirmed-stages", JSON.stringify(state.confirmedCompletedStages));
+  if (state.progress) {
+    const completed = normalizedIds(state.progress.completed_stages);
+    completed.add(String(stageId));
+    state.progress.completed_stages = [...completed].map(value => Number(value) || value);
+  }
 }
 
 function nextUnansweredIndex(exercises = [], progress = state.progress, startAt = 0) {
@@ -388,7 +415,7 @@ function renderCertificate() {
 
 function resetIdentityForNewName() {
   stopAngleTrainingTimer();
-  ["trig-player", "trig-player-id", "trig-character", "trig-stage"].forEach(key => sessionStorage.removeItem(key));
+  ["trig-player", "trig-player-id", "trig-character", "trig-stage", "trig-confirmed-stages"].forEach(key => sessionStorage.removeItem(key));
   state.playerName = "";
   state.playerId = "";
   state.selectedCharacter = null;
@@ -397,6 +424,7 @@ function resetIdentityForNewName() {
   state.questionIndex = 0;
   state.selectedOption = null;
   state.progress = null;
+  state.confirmedCompletedStages = [];
   state.hints = {};
   state.nameError = "";
   state.modal = null;
@@ -522,8 +550,12 @@ async function answerQuestion() {
   try {
     const data = await api("/answer", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id, selected_option: selectedOption }) });
     state.progress = data.progress;
+    if (data.stage_completed) confirmStageCompletion(state.stageId);
     if (state.progress?.game_over) {
       state.view = "gameOver";
+    } else if (data.stage_completed) {
+      const feedback = data.feedback || data.message || "Resposta correta!";
+      state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: `Código: ${data.code_received}`, action: data.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: data.awaiting_final_code ? "go-final" : "next-stage" };
     } else if (typeof data.correct !== "boolean" && isQuestionAnswered(state.progress, question.id)) {
       state.modal = null;
       if (state.progress.awaiting_final_code) {
@@ -544,9 +576,6 @@ async function answerQuestion() {
       const feedback = data.feedback || data.message || "Essa alternativa não está correta. Tente novamente.";
       const attemptsText = Number.isFinite(data.remaining_errors) ? ` Restam ${data.remaining_errors} tentativas.` : "";
       state.modal = { type: "error", reaction: "sad", title: "Resposta incorreta", message: `${feedback}${attemptsText}`, action: "TENTAR NOVAMENTE" };
-    } else if (data.stage_completed) {
-      const feedback = data.feedback || data.message || "Resposta correta!";
-      state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: `Código: ${data.code_received}`, action: data.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: data.awaiting_final_code ? "go-final" : "next-stage" };
     } else {
       const feedback = data.feedback || data.message || "Resposta correta!";
       state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: `${feedback} Você ganhou ${data.earned_points} pontos.`, action: "PRÓXIMA PERGUNTA", next: "next-question" };
@@ -575,6 +604,8 @@ async function restart() {
     const options = state.playerId ? { method: "POST" } : { method: "POST", body: JSON.stringify({ player_name: state.playerName }) };
     const data = await api(path, options);
     state.progress = data.progress;
+    state.confirmedCompletedStages = [];
+    sessionStorage.removeItem("trig-confirmed-stages");
     state.hints = {};
     state.hintCooldownUntil = 0;
     state.stageId = 1;
