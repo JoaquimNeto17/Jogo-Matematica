@@ -1,8 +1,9 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.20-ROUTES-03-STORY-05-CLEAN";
+const FRONTEND_BUILD = "2026.08.24-ROUTES-03-STORY-06-FLOW";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
+const CERTIFICATE_CANVA_URL = "https://canva.link/7qs2cy7o446ckiv";
 
 // Mesmas imagens cadastradas no backend original (characters.py).
 // A rota /game/characters continua sendo a fonte principal; esta lista evita
@@ -53,6 +54,7 @@ const state = {
   overview: null,
   characters: BACKEND_CHARACTERS,
   playerName: sessionStorage.getItem("trig-player") || "",
+  nameError: "",
   playerId: sessionStorage.getItem("trig-player-id") || "",
   selectedCharacter: Number(sessionStorage.getItem("trig-character")) || null,
   stageId: Number(sessionStorage.getItem("trig-stage")) || 1,
@@ -148,6 +150,20 @@ async function api(path, options = {}) {
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+}
+
+function validatePlayerName(value) {
+  const name = String(value || "").trim().replace(/\s+/g, " ");
+  if (name.length < 2) return { name, error: "Digite um nome com pelo menos dois caracteres." };
+  if (name.length > 40) return { name, error: "O nome deve ter no máximo 40 caracteres." };
+  if (!/^[\p{L}]+(?:[ '\u2019-][\p{L}]+)*$/u.test(name)) {
+    return { name, error: "Use somente letras, espaços, hífen ou apóstrofo. Não utilize números ou símbolos." };
+  }
+  return { name, error: "" };
+}
+
+function canUseAngleSupport() {
+  return state.stageId === 1 || (state.stageId === 2 && state.questionIndex === 0);
 }
 
 function storyPages() {
@@ -269,6 +285,9 @@ function modalHtml() {
   if (state.modal.kind === "how-to-play") {
     return `<div class="modal-backdrop how-to-backdrop" data-modal-backdrop><section class="modal how-to-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-title"><button class="modal-close-button" data-action="close-modal" aria-label="Fechar instruções" title="Fechar">×</button><header class="how-to-header"><span class="how-to-symbol" aria-hidden="true">?</span><div><p>GUIA RÁPIDO</p><h2 id="how-to-title">Como jogar</h2></div></header><p class="how-to-intro">Complete as cinco fases, recupere as palavras escondidas e monte o código final do Desafio Trigonométrico.</p><div class="how-to-steps"><article><span>1</span><div><strong>IDENTIFIQUE-SE</strong><p>Digite seu nome e escolha o personagem que acompanhará você.</p></div></article><article><span>2</span><div><strong>LEIA AS INSTRUÇÕES</strong><p>Cada exercício possui uma explicação antes da pergunta.</p></div></article><article><span>3</span><div><strong>RESPONDA</strong><p>Selecione uma alternativa e clique em “Responder” para confirmar.</p></div></article><article><span>4</span><div><strong>USE AS DICAS</strong><p>O botão “?” mostra até duas dicas. Aguarde três segundos entre elas.</p></div></article><article><span>5</span><div><strong>CUIDE DAS VIDAS</strong><p>Você possui três vidas. Cada resposta incorreta consome uma tentativa.</p></div></article><article><span>6</span><div><strong>MONTE O CÓDIGO</strong><p>Cada fase libera uma palavra. No final, una todas na ordem correta.</p></div></article></div><button class="primary-button compact-button how-to-confirm" data-action="close-modal">ENTENDI, VAMOS JOGAR</button></section></div>`;
   }
+  if (state.modal.kind === "change-name") {
+    return `<div class="modal-backdrop" data-modal-backdrop><section class="modal simple-modal warning-modal" role="dialog" aria-modal="true" aria-labelledby="change-name-title"><button class="modal-close-button" data-action="close-modal" aria-label="Cancelar mudança de nome">×</button><div class="warning-symbol" aria-hidden="true">!</div><h2 id="change-name-title">Mudar jogador?</h2><p>O progresso atual continuará associado a <strong>${escapeHtml(state.playerName)}</strong>. Ao informar outro nome, você iniciará um novo progresso.</p><div class="warning-actions"><button class="secondary-button" data-action="close-modal">CANCELAR</button><button class="primary-button compact-button" data-action="confirm-change-name">MUDAR NOME</button></div></section></div>`;
+  }
   const { type = "", title, message, code, reaction, action = "Fechar", next = "close-modal" } = state.modal;
   const reactionImage = reaction ? REACTION_IMAGES[state.selectedCharacter]?.[reaction] : "";
   return `<div class="modal-backdrop"><section class="modal ${type} ${reactionImage ? "has-reaction" : "simple-modal"}">${reactionImage ? `<img class="reaction-character reaction-${reaction}" src="${reactionImage}" alt="Reação de ${escapeHtml(state.characters.find(item => item.id === state.selectedCharacter)?.name || "personagem")}">` : ""}<div class="reaction-content"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${code ? `<p class="code">${escapeHtml(code)}</p>` : ""}<button class="primary-button compact-button" data-action="${next}">${escapeHtml(action)}</button></div></section></div>`;
@@ -289,7 +308,8 @@ function renderStart() {
 }
 
 function renderName() {
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Digite seu nome</h1><form class="name-form" id="name-form"><label for="player-name">Nome do jogador</label><input id="player-name" name="playerName" maxlength="40" autocomplete="name" value="${escapeHtml(state.playerName)}" placeholder="Como devemos chamar você?" required><button class="primary-button" type="submit">AVANÇAR</button></form></div></section>`;
+  const invalid = state.nameError ? `aria-invalid="true" aria-describedby="name-error"` : "";
+  return `<section class="screen"><div class="panel name-panel"><p class="screen-kicker">IDENTIFICAÇÃO DO JOGADOR</p><h1 class="panel-title">Digite seu nome</h1><p class="lead name-guidance">Seu nome será usado para registrar o progresso e emitir o certificado.</p><form class="name-form" id="name-form" novalidate><label for="player-name">Nome do jogador</label><input id="player-name" name="playerName" maxlength="40" autocomplete="name" value="${escapeHtml(state.playerName)}" placeholder="Como devemos chamar você?" ${invalid} required>${state.nameError ? `<p class="form-error" id="name-error" role="alert"><strong>Nome inválido:</strong> ${escapeHtml(state.nameError)}</p>` : `<p class="form-help">Use letras e espaços. Hífen e apóstrofo também são permitidos.</p>`}<button class="primary-button" type="submit">AVANÇAR</button></form></div></section>`;
 }
 
 function renderCharacters() {
@@ -318,19 +338,19 @@ function renderMap() {
     return `<div class="stage-chip ${done ? "done" : active ? "active" : ""}"><strong>FASE ${id}</strong><br><small>${done ? "CONCLUÍDA" : active ? "LIBERADA" : "BLOQUEADA"}</small></div>`;
   }).join("");
   const codeSlots = Array.from({ length: 5 }, (_, index) => `<span class="code-slot ${unlockedCodes[index] ? "unlocked" : "locked"}"><small>PARTE ${index + 1}</small><strong>${unlockedCodes[index] ? escapeHtml(unlockedCodes[index]) : "••••"}</strong></span>`).join("");
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${currentStage}</button></div></div></section>`;
+  return `<section class="screen map-screen"><button class="player-name-button" data-action="change-name" title="Trocar jogador"><span>JOGADOR</span><strong>${escapeHtml(state.playerName)}</strong><small>MUDAR NOME</small></button><div class="panel"><h1 class="panel-title">Centro de treinamento</h1><p class="lead">Complete cada sala para recuperar uma parte do código final.</p><div class="stage-map">${chips}</div><section class="code-tracker" aria-label="Partes recuperadas do código final"><p>CÓDIGO RECUPERADO</p><div>${codeSlots}</div></section><div class="game-actions"><button class="primary-button compact-button" data-action="load-stage">ENTRAR NA FASE ${currentStage}</button></div></div></section>`;
 }
 
 function renderStage() {
-  return `<section class="screen"><div class="panel"><h1 class="panel-title">Fase ${state.stageId}</h1><h2 style="text-align:center">${escapeHtml(state.stage?.title)}</h2><p class="lead" style="text-align:center">${escapeHtml(state.stage?.intro)}</p><div class="game-actions"><button class="primary-button" data-action="begin-questions">COMEÇAR</button></div></div></section>`;
+  return renderInstruction();
 }
 
 function renderInstruction() {
   const question = state.stage?.exercises?.[state.questionIndex];
-  if (!question) return renderStage();
+  if (!question) return `<section class="screen"><div class="panel"><h1 class="panel-title">Fase indisponível</h1><div class="game-actions"><button class="primary-button" data-action="open-map">VOLTAR AO MAPA</button></div></div></section>`;
   const instruction = question.instruction || "Leia com atenção os dados da questão, identifique a relação trigonométrica adequada e compare seu resultado com as alternativas.";
   const character = state.characters.find(item => item.id === state.selectedCharacter);
-  return `<section class="screen instruction-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="question-counter">QUESTÃO ${state.questionIndex + 1} DE ${state.stage.exercises.length}</div></header><article class="panel instruction-panel"><div class="instruction-copy"><p class="screen-kicker">BRIEFING DO EXERCÍCIO</p><h1 class="panel-title">Como resolver</h1><p class="instruction-text">${escapeHtml(instruction)}</p><div class="instruction-steps"><div><span>1</span><strong>LEIA</strong><small>Encontre os dados importantes.</small></div><div><span>2</span><strong>RELACIONE</strong><small>Escolha a função trigonométrica.</small></div><div><span>3</span><strong>RESOLVA</strong><small>Calcule e marque a alternativa.</small></div></div><div class="game-actions centered-main-action"><button class="primary-button compact-button" data-action="start-question">IR PARA A QUESTÃO →</button></div></div><div class="instruction-visual" aria-hidden="true"><div class="math-card"><span class="math-angle">30°</span><div class="triangle"><i></i></div><strong>sen · cos · tg</strong></div>${character ? `<img src="${escapeHtml(character.image_url)}" alt="">` : ""}</div></article></section>`;
+  return `<section class="screen instruction-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="question-counter">QUESTÃO ${state.questionIndex + 1} DE ${state.stage.exercises.length}</div></header><article class="panel instruction-panel combined-stage-panel"><div class="instruction-copy"><p class="screen-kicker">${escapeHtml(state.stage?.title || "BRIEFING DO EXERCÍCIO")}</p><h1 class="panel-title">Como resolver</h1><p class="stage-intro-inline">${escapeHtml(state.stage?.intro || "")}</p><p class="instruction-text">${escapeHtml(instruction)}</p><div class="instruction-steps"><div><span>1</span><strong>LEIA</strong><small>Encontre os dados importantes.</small></div><div><span>2</span><strong>RELACIONE</strong><small>Escolha a função trigonométrica.</small></div><div><span>3</span><strong>RESOLVA</strong><small>Calcule e marque a alternativa.</small></div></div><div class="game-actions centered-main-action"><button class="primary-button compact-button" data-action="start-question">IR PARA A QUESTÃO →</button></div></div><div class="instruction-visual" aria-hidden="true"><div class="math-card"><span class="math-angle">30°</span><div class="triangle"><i></i></div><strong>sen · cos · tg</strong></div>${character ? `<img src="${escapeHtml(character.image_url)}" alt="">` : ""}</div></article></section>`;
 }
 
 function renderQuestion() {
@@ -341,11 +361,12 @@ function renderQuestion() {
   const hintCoolingDown = Date.now() < state.hintCooldownUntil;
   const answers = question.options.map(option => `<button class="answer ${state.selectedOption === option.id ? "selected" : ""}" data-option="${option.id}">${escapeHtml(option.id)}) ${escapeHtml(option.text).replace("raiz de 3", "√3")}</button>`).join("");
   const character = state.characters.find(item => item.id === state.selectedCharacter);
+  const angleSupport = canUseAngleSupport() ? `<button class="angles-button" data-action="notable-angles" aria-label="Abrir treino e tabela opcional de ângulos notáveis" title="Treino e tabela opcional">30°</button>` : "";
   const hintsHtml = questionHints.length ? `<div class="hints-list">${questionHints.map((hint, index) => {
     const isNew = state.newHintKey === `${question.id}:${index}`;
     return `<div class="hint-box ${isNew ? "new-hint" : ""}"><strong>DICA ${index + 1}:</strong> ${escapeHtml(hint)}</div>`;
   }).join("")}</div>` : "";
-  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button><button class="angles-button" data-action="notable-angles" aria-label="Consultar tabela de ângulos notáveis" title="Ângulos notáveis">30°</button><button class="help-button" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
+  return `<section class="screen question-screen"><button class="corner-nav-button" data-action="open-map" aria-label="Voltar ao mapa" title="Voltar ao mapa">←</button>${angleSupport}<button class="help-button" data-action="hint" aria-label="Pedir uma dica" title="${hintCoolingDown ? "Aguarde para pedir outra dica" : "Pedir dica"}" ${hintCoolingDown ? "disabled" : ""}>?</button><header class="stage-header"><span aria-hidden="true"></span><div class="stage-heading">FASE ${state.stageId}</div><div class="hud"><span>${progress.score || 0} PTS</span><span>${Math.max(0, 3 - (progress.wrong_answers || 0))} VIDAS</span></div></header><article class="panel"><p class="lead">${escapeHtml(state.stage.intro)}</p><h2>PERGUNTA ${state.questionIndex + 1}</h2><p class="question">${escapeHtml(question.question)}</p><div class="answers">${answers}</div>${hintsHtml}<div class="game-actions centered-main-action"><button class="primary-button pink-button" data-action="answer" ${state.selectedOption ? "" : "disabled"}>RESPONDER</button></div></article>${character ? `<img src="${escapeHtml(character.image_url)}" alt="" style="position:fixed;left:2vw;bottom:0;max-height:38vh;max-width:20vw;object-fit:contain;pointer-events:none">` : ""}</section>`;
 }
 
 function renderFinalCode() {
@@ -355,14 +376,33 @@ function renderFinalCode() {
 
 function renderCompleted() {
   const classification = state.progress?.classification?.title || state.progress?.classification || "Mestre das Funções Trigonométricas";
-  return `<section class="screen"><div class="panel" style="text-align:center"><h1 class="panel-title">Parabéns!</h1><p class="code">${escapeHtml(state.playerName)}</p><p>Você concluiu o Desafio Trigonométrico.</p><p>Pontuação final: <strong>${state.progress?.score || 0} pontos</strong></p><p>Classificação: <strong>${escapeHtml(classification)}</strong></p><div class="game-actions final-actions"><button class="primary-button" data-action="certificate">CERTIFICADO</button><button class="secondary-button" data-action="restart">JOGAR NOVAMENTE</button></div></div></section>`;
+  return `<section class="screen"><div class="panel completion-panel"><p class="screen-kicker">MISSÃO CONCLUÍDA</p><h1 class="panel-title">Parabéns!</h1><p class="code">${escapeHtml(state.playerName)}</p><p>Você concluiu o Desafio Trigonométrico.</p><p>Pontuação final: <strong>${state.progress?.score || 0} pontos</strong></p><p>Classificação: <strong>${escapeHtml(classification)}</strong></p><div class="game-actions final-actions"><button class="primary-button" data-action="certificate">VER CERTIFICADO</button><button class="secondary-button" data-action="restart">JOGAR NOVAMENTE</button></div></div></section>`;
 }
 
 function renderCertificate() {
   const certificate = state.certificate;
   if (!certificate) return renderCompleted();
   const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
-  return `<section class="screen certificate-screen"><article class="certificate" id="certificate-document"><div class="certificate-corners" aria-hidden="true"></div><div class="certificate-symbol">π</div><p class="certificate-eyebrow">CERTIFICADO DE CONCLUSÃO</p><h1>Desafio Trigonométrico</h1><p class="certificate-text">Certificamos que</p><h2>${escapeHtml(certificate.player_name)}</h2><p class="certificate-text">concluiu todas as etapas do Desafio Trigonométrico, demonstrando conhecimentos sobre seno, cosseno, tangente e funções trigonométricas.</p><div class="certificate-results"><span><small>PONTUAÇÃO</small><strong>${escapeHtml(certificate.score)} pontos</strong></span><span><small>CLASSIFICAÇÃO</small><strong>${escapeHtml(certificate.title)}</strong></span></div><p class="certificate-date">Emitido em ${escapeHtml(date)}</p><div class="certificate-signature"><span></span><strong>Desafio Trigonométrico</strong><small>Projeto educacional</small></div></article><div class="certificate-actions"><button class="secondary-button" data-action="back-completed">← VOLTAR</button><button class="primary-button" data-action="print-certificate">IMPRIMIR OU SALVAR EM PDF</button></div></section>`;
+  return `<section class="screen certificate-screen"><article class="certificate" id="certificate-document"><div class="certificate-corners" aria-hidden="true"></div><div class="certificate-symbol">π</div><p class="certificate-eyebrow">CERTIFICADO DE CONCLUSÃO</p><h1>Desafio Trigonométrico</h1><p class="certificate-text">Certificamos que</p><h2>${escapeHtml(certificate.player_name)}</h2><p class="certificate-text">concluiu todas as etapas do Desafio Trigonométrico, demonstrando conhecimentos sobre seno, cosseno, tangente e funções trigonométricas.</p><div class="certificate-results"><span><small>PONTUAÇÃO</small><strong>${escapeHtml(certificate.score)} pontos</strong></span><span><small>CLASSIFICAÇÃO</small><strong>${escapeHtml(certificate.title)}</strong></span></div><p class="certificate-date">Emitido em ${escapeHtml(date)}</p><div class="certificate-signature"><span></span><strong>Desafio Trigonométrico</strong><small>Projeto educacional</small></div></article><div class="certificate-actions"><button class="secondary-button" data-action="back-completed">← VOLTAR</button><button class="secondary-button certificate-canva-button" data-action="open-certificate-canva">ABRIR MODELO NO CANVA</button><button class="primary-button" data-action="print-certificate">IMPRIMIR OU SALVAR EM PDF</button></div></section>`;
+}
+
+function resetIdentityForNewName() {
+  stopAngleTrainingTimer();
+  ["trig-player", "trig-player-id", "trig-character", "trig-stage"].forEach(key => sessionStorage.removeItem(key));
+  state.playerName = "";
+  state.playerId = "";
+  state.selectedCharacter = null;
+  state.stageId = 1;
+  state.stage = null;
+  state.questionIndex = 0;
+  state.selectedOption = null;
+  state.progress = null;
+  state.hints = {};
+  state.nameError = "";
+  state.modal = null;
+  state.certificate = null;
+  state.view = "name";
+  render();
 }
 
 function renderGameOver() {
@@ -400,7 +440,15 @@ async function registerPlayer() {
     state.storyPage = 0;
     const hasProgress = state.stageId > 1 || state.progress.completed_stages?.length > 0 || state.progress.answered_questions?.length > 0;
     state.view = hasProgress ? "map" : "story";
-  } catch (error) { notify(error.message); state.view = "characters"; }
+  } catch (error) {
+    if (/nome|name|caractere|símbolo|simbolo|inválid/i.test(error.message)) {
+      state.nameError = error.message;
+      state.view = "name";
+    } else {
+      notify(error.message);
+      state.view = "characters";
+    }
+  }
   render();
 }
 
@@ -423,7 +471,7 @@ async function loadStage() {
         notify("Esta fase já foi concluída. Seu progresso foi atualizado.");
       } else {
         state.questionIndex = nextQuestion;
-        state.view = "stage";
+        state.view = "instruction";
       }
     }
   } catch (error) { notify(error.message); state.view = "map"; }
@@ -546,8 +594,10 @@ async function loadCertificate() {
     state.certificate = data.certificate;
     state.view = "certificate";
   } catch (error) {
-    state.view = "completed";
-    notify(error.message);
+    const classification = state.progress?.classification?.title || state.progress?.classification || "Mestre das Funções Trigonométricas";
+    state.certificate = { player_name: state.playerName, score: state.progress?.score || 0, title: classification };
+    state.view = "certificate";
+    notify("Certificado carregado com os dados disponíveis no jogo.");
   }
   render();
 }
@@ -571,6 +621,8 @@ app.addEventListener("click", async event => {
   if (action === "restart-angle-training") startAngleTraining();
   if (action === "toggle-angle-table" && state.modal?.kind === "angle-training") { state.modal.showTable = !state.modal.showTable; render(); }
   if (action === "credits") { state.modal = { title: "Créditos", message: "Jogo educativo desenvolvido como projeto de trigonometria. Design e programação integrados à API Flask.", action: "FECHAR" }; render(); }
+  if (action === "change-name") { state.modal = { kind: "change-name" }; render(); }
+  if (action === "confirm-change-name") resetIdentityForNewName();
   if (action === "register") await registerPlayer();
   if (action === "story-next") { state.storyPage = Math.min(storyPages().length - 1, state.storyPage + 1); render(); }
   if (action === "story-back") { state.storyPage = Math.max(0, state.storyPage - 1); render(); }
@@ -586,6 +638,7 @@ app.addEventListener("click", async event => {
   if (action === "go-final") { state.modal = null; state.view = "finalCode"; render(); }
   if (action === "restart") await restart();
   if (action === "certificate") await loadCertificate();
+  if (action === "open-certificate-canva") window.open(CERTIFICATE_CANVA_URL, "_blank", "noopener,noreferrer");
   if (action === "print-certificate") window.print();
   if (action === "back-completed") { state.view = "completed"; render(); }
 });
@@ -602,8 +655,10 @@ app.addEventListener("submit", event => {
   event.preventDefault();
   const form = new FormData(event.target);
   if (event.target.id === "name-form") {
-    state.playerName = String(form.get("playerName") || "").trim();
-    if (state.playerName.length < 2) return notify("Digite um nome com pelo menos dois caracteres.");
+    const validation = validatePlayerName(form.get("playerName"));
+    state.playerName = validation.name;
+    state.nameError = validation.error;
+    if (state.nameError) { render(); app.querySelector("#player-name")?.focus(); return; }
     state.view = "characters";
     render();
   }

@@ -250,6 +250,14 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 
 .name-form { display: grid; gap: 18px; width: min(650px, 100%); margin: auto; }
 .name-form label { font-size: 20px; color: var(--cyan); }
+.name-panel { width: min(780px, 92vw); }
+.name-panel > .screen-kicker, .name-panel > .panel-title, .name-guidance { text-align: center; }
+.name-guidance { margin: -5px auto 22px; }
+.form-help, .form-error { margin: -9px 2px 0; font-size: 14px; line-height: 1.4; }
+.form-help { color: #a9c2e5; }
+.form-error { padding: 11px 13px; border: 1px solid rgba(255,79,125,.72); border-radius: 10px; color: #ffd9e3; background: rgba(107,13,50,.48); box-shadow: 0 0 16px rgba(255,71,119,.16); }
+.form-error strong { color: #ff88a6; }
+.name-form input[aria-invalid="true"] { border-color: #ff4777; box-shadow: 0 0 0 2px rgba(255,71,119,.2), 0 0 18px rgba(255,71,119,.28); }
 .name-form input, .code-input {
   width: 100%;
   padding: 18px 20px;
@@ -369,6 +377,22 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
 .angles-note { margin: 13px 0 0; color: #bfd6f5; font-size: 14px; }
 .angles-note strong { color: #ffe96b; }
 .angles-confirm { display: flex; min-width: min(290px, 100%); margin: 18px auto 0; }
+.player-name-button { position: fixed; top: clamp(16px, 3vh, 28px); left: clamp(16px, 3vw, 42px); z-index: 14; min-width: 160px; display: grid; gap: 1px; padding: 9px 14px; border: 1px solid rgba(0,217,255,.58); border-radius: 12px; color: #fff; background: rgba(7,17,66,.92); box-shadow: 0 8px 22px rgba(0,0,0,.25), 0 0 16px rgba(0,217,255,.18); text-align: left; cursor: pointer; transition: transform .18s ease, filter .18s ease; }
+.player-name-button:hover, .player-name-button:focus-visible { transform: translateY(-2px); filter: brightness(1.15); outline: 2px solid var(--cyan); outline-offset: 2px; }
+.player-name-button span, .player-name-button small { color: var(--cyan); font-family: var(--font-display); font-size: 9px; letter-spacing: .12em; }
+.player-name-button strong { max-width: 190px; overflow: hidden; color: #fff; font-family: var(--font-display); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.player-name-button small { color: #ffe45e; }
+.stage-intro-inline { margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--cyan); border-radius: 0 9px 9px 0; color: #cfe6ff; background: rgba(14,43,107,.54); font-size: 14px; line-height: 1.4; }
+.warning-modal { text-align: center; }
+.warning-symbol { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 14px; border: 2px solid #ffe45e; border-radius: 50%; color: #07112f; background: #ffe45e; box-shadow: 0 0 20px rgba(255,228,94,.36); font-family: var(--font-display); font-size: 32px; font-weight: 800; }
+.warning-modal p { color: #d7e7fb; line-height: 1.55; }
+.warning-modal p strong { color: #fff; }
+.warning-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 22px; }
+.warning-actions button { min-width: min(235px, 100%); margin: 0; }
+.completion-panel { text-align: center; }
+.certificate-actions { flex-wrap: wrap; }
+.certificate-actions .secondary-button { min-width: 0; }
+.certificate-canva-button { border-color: #9b7cff; background: linear-gradient(180deg, #694ed0, #302080); }
 .training-modal { width: min(760px, 95vw); max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; }
 .training-modal .angles-header { display: grid; grid-template-columns: 58px 1fr auto; }
 .training-clock { --time-left: 1; width: 72px; height: 72px; display: grid; place-content: center; border: 3px solid var(--cyan); border-radius: 50%; color: #fff; background: conic-gradient(#ffd116 calc(var(--time-left) * 1turn), rgba(47,66,133,.55) 0); box-shadow: 0 0 20px rgba(0,217,255,.45); text-align: center; transition: background .2s linear; }
@@ -697,6 +721,17 @@ h1, h2, h3, .panel-title, .stage-heading, .primary-button, .secondary-button, .i
   .training-feedback { margin: 9px 0 7px; font-size: 13px; }
   .training-score { grid-template-columns: auto auto 1px auto auto; gap: 7px; }
   .training-score i { margin: 0 2px; }
+  .map-screen { padding-top: 88px; }
+  .player-name-button { top: 12px; left: 12px; min-width: 145px; padding: 7px 11px; }
+  .player-name-button strong { max-width: 150px; font-size: 12px; }
+  .name-panel { padding-top: 28px; }
+  .name-guidance { font-size: 13px; }
+  .combined-stage-panel { padding-top: 18px; }
+  .stage-intro-inline { font-size: 12px; }
+  .warning-actions { display: grid; grid-template-columns: 1fr; }
+  .warning-actions button { width: 100%; }
+  .certificate-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .certificate-actions button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
