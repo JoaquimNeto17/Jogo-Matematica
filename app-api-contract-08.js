@@ -1,5 +1,5 @@
 // Localmente acessa o Flask direto. Na Vercel, /api é encaminhado ao backend.
-const FRONTEND_BUILD = "2026.08.24-ROUTES-04-STAGE-CYCLE";
+const FRONTEND_BUILD = "2026.08.24-ROUTES-05-API-CONTRACT";
 console.info(`[Desafio Trigonométrico] Frontend build ${FRONTEND_BUILD}`);
 const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = IS_LOCAL ? "http://127.0.0.1:5000/game" : "/api/game";
@@ -62,10 +62,6 @@ const state = {
   questionIndex: 0,
   selectedOption: null,
   progress: null,
-  confirmedCompletedStages: (() => {
-    try { return JSON.parse(sessionStorage.getItem("trig-confirmed-stages") || "[]"); }
-    catch { return []; }
-  })(),
   hints: {},
   hintCooldownUntil: 0,
   newHintKey: null,
@@ -197,13 +193,10 @@ function loading() {
 
 function currentStageFromProgress(progress = state.progress) {
   const serverStage = Number(progress?.current_stage);
-  const completedStages = normalizedIds([
-    ...(Array.isArray(progress?.completed_stages) ? progress.completed_stages : []),
-    ...(Array.isArray(state.confirmedCompletedStages) ? state.confirmedCompletedStages : []),
-  ]);
-  if (Number.isInteger(serverStage) && serverStage >= 1 && serverStage <= 5 && !completedStages.has(String(serverStage))) {
+  if (Number.isInteger(serverStage) && serverStage >= 1 && serverStage <= 5) {
     return serverStage;
   }
+  const completedStages = normalizedIds(progress?.completed_stages);
   const firstIncompleteStage = [1, 2, 3, 4, 5].find(stageId => !completedStages.has(String(stageId)));
   if (firstIncompleteStage) return firstIncompleteStage;
   return Math.min(5, Math.max(1, Number(state.stageId) || 1));
@@ -218,22 +211,22 @@ function isQuestionAnswered(progress, questionId) {
 }
 
 function isStageCompleted(progress, stageId) {
-  return normalizedIds([
-    ...(Array.isArray(progress?.completed_stages) ? progress.completed_stages : []),
-    ...(Array.isArray(state.confirmedCompletedStages) ? state.confirmedCompletedStages : []),
-  ]).has(String(stageId));
+  return normalizedIds(progress?.completed_stages).has(String(stageId));
 }
 
-function confirmStageCompletion(stageId) {
-  const confirmed = normalizedIds(state.confirmedCompletedStages);
-  confirmed.add(String(stageId));
-  state.confirmedCompletedStages = [...confirmed].map(Number).filter(Number.isFinite);
-  sessionStorage.setItem("trig-confirmed-stages", JSON.stringify(state.confirmedCompletedStages));
-  if (state.progress) {
-    const completed = normalizedIds(state.progress.completed_stages);
-    completed.add(String(stageId));
-    state.progress.completed_stages = [...completed].map(value => Number(value) || value);
-  }
+function loadedStageIsFullyAnswered(progress = state.progress) {
+  const exercises = state.stage?.exercises;
+  if (!Array.isArray(exercises) || exercises.length === 0) return false;
+  return exercises.every(question => isQuestionAnswered(progress, question.id));
+}
+
+function backendConfirmsLoadedStageCompletion(response = {}, progress = state.progress) {
+  if (!loadedStageIsFullyAnswered(progress)) return false;
+  const completedByProgress = isStageCompleted(progress, state.stageId);
+  const completedByResponse = Number(response.completed_stage) === Number(state.stageId);
+  const movedForward = Number(progress?.current_stage) > Number(state.stageId);
+  const reachedFinalCode = Boolean(progress?.awaiting_final_code || response.awaiting_final_code);
+  return completedByProgress && (completedByResponse || movedForward || reachedFinalCode);
 }
 
 function nextUnansweredIndex(exercises = [], progress = state.progress, startAt = 0) {
@@ -424,7 +417,6 @@ function resetIdentityForNewName() {
   state.questionIndex = 0;
   state.selectedOption = null;
   state.progress = null;
-  state.confirmedCompletedStages = [];
   state.hints = {};
   state.nameError = "";
   state.modal = null;
@@ -438,6 +430,9 @@ function renderGameOver() {
 }
 
 async function bootstrap() {
+  // Uma versão anterior armazenava fases concluídas no navegador. Isso podia
+  // contradizer a API e fazer a navegação voltar à fase 1.
+  sessionStorage.removeItem("trig-confirmed-stages");
   try {
     const [overview, characters] = await Promise.all([api(""), api("/characters")]);
     state.overview = overview;
@@ -549,36 +544,40 @@ async function answerQuestion() {
   loading();
   try {
     const data = await api("/answer", { method: "POST", body: JSON.stringify({ player_name: state.playerName, question_id: question.id, selected_option: selectedOption }) });
-    state.progress = data.progress;
-    if (data.stage_completed) confirmStageCompletion(state.stageId);
+    state.progress = data.progress || await api(`/progress/${encodeURIComponent(state.playerName)}`);
+    const nextQuestion = nextUnansweredIndex(state.stage?.exercises, state.progress, 0);
+    const answeredNow = isQuestionAnswered(state.progress, question.id);
+    const stageReallyCompleted = backendConfirmsLoadedStageCompletion(data, state.progress);
     if (state.progress?.game_over) {
       state.view = "gameOver";
-    } else if (data.stage_completed) {
-      const feedback = data.feedback || data.message || "Resposta correta!";
-      state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: `Código: ${data.code_received}`, action: data.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: data.awaiting_final_code ? "go-final" : "next-stage" };
-    } else if (typeof data.correct !== "boolean" && isQuestionAnswered(state.progress, question.id)) {
-      state.modal = null;
-      if (state.progress.awaiting_final_code) {
-        state.view = "finalCode";
-      } else {
-        const nextQuestion = nextUnansweredIndex(state.stage?.exercises, state.progress, state.questionIndex + 1);
-        if (nextQuestion >= 0) {
-          state.questionIndex = nextQuestion;
-          state.view = "instruction";
-          notify("Progresso sincronizado. Continuando na próxima questão.");
-        } else {
-          state.stage = null;
-          state.view = "map";
-          notify("Fase concluída. Progresso atualizado.");
-        }
-      }
     } else if (data.correct === false) {
       const feedback = data.feedback || data.message || "Essa alternativa não está correta. Tente novamente.";
       const attemptsText = Number.isFinite(data.remaining_errors) ? ` Restam ${data.remaining_errors} tentativas.` : "";
       state.modal = { type: "error", reaction: "sad", title: "Resposta incorreta", message: `${feedback}${attemptsText}`, action: "TENTAR NOVAMENTE" };
+    } else if (answeredNow && nextQuestion >= 0) {
+      const feedback = data.feedback || data.message || "Resposta registrada!";
+      if (typeof data.correct !== "boolean") {
+        state.modal = null;
+        state.questionIndex = nextQuestion;
+        state.view = "instruction";
+        notify("Resposta já registrada. Continuando na próxima questão da mesma fase.");
+      } else {
+        state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: `${feedback} Você ganhou ${data.earned_points || 0} pontos.`, action: "PRÓXIMA PERGUNTA", next: "next-question" };
+      }
+    } else if (stageReallyCompleted) {
+      const feedback = data.feedback || data.message || "Resposta correta!";
+      const codeText = data.code_received ? `Código: ${data.code_received}` : "";
+      state.modal = { type: "success", reaction: "happy", title: `Fase ${state.stageId} concluída`, message: `${feedback} ${state.stage.success_message || ""}`.trim(), code: codeText, action: state.progress.awaiting_final_code ? "CÓDIGO FINAL" : "PRÓXIMA FASE", next: state.progress.awaiting_final_code ? "go-final" : "next-stage" };
+    } else if (typeof data.correct !== "boolean" && answeredNow) {
+      state.modal = null;
+      if (state.progress.awaiting_final_code) {
+        state.view = "finalCode";
+      } else {
+        await openMap();
+      }
     } else {
       const feedback = data.feedback || data.message || "Resposta correta!";
-      state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: `${feedback} Você ganhou ${data.earned_points} pontos.`, action: "PRÓXIMA PERGUNTA", next: "next-question" };
+      state.modal = { type: "success", reaction: "happy", title: "Resposta correta", message: feedback, action: "CONTINUAR", next: "next-question" };
     }
   } catch (error) { notify(error.message); }
   state.answerPending = false;
@@ -604,7 +603,6 @@ async function restart() {
     const options = state.playerId ? { method: "POST" } : { method: "POST", body: JSON.stringify({ player_name: state.playerName }) };
     const data = await api(path, options);
     state.progress = data.progress;
-    state.confirmedCompletedStages = [];
     sessionStorage.removeItem("trig-confirmed-stages");
     state.hints = {};
     state.hintCooldownUntil = 0;
